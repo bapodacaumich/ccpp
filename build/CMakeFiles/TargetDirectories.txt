@@ -1,4 +1,3 @@
-/home/brandon/cplusplusport/ccpp/build/CMakeFiles/station_example.dir
 /home/brandon/cplusplusport/ccpp/build/CMakeFiles/run_ccpp.dir
 /home/brandon/cplusplusport/ccpp/build/CMakeFiles/edit_cache.dir
 /home/brandon/cplusplusport/ccpp/build/CMakeFiles/rebuild_cache.dir

@@ -201,12 +201,12 @@ void loadCube(std::vector<std::vector<std::vector<float>>>& data, float xs, floa
     * @param data: std::vector<std::vector<std::vector<float>>>, output data
     */
     data = {
-        {{xf, 1,-1}, {xf,-1,-1}, {xs, 1,-1}},  {{xf,-1,-1},  {xs, 1,-1},  {xs,-1,-1}}, // base
-        {{xs, 1, 1}, {xs,-1, 1}, {xs, 1,-1}},  {{xs,-1, 1},  {xs, 1,-1},  {xs,-1,-1}}, // front
-        {{xf, 1,-1}, {xs, 1,-1}, {xs, 1, 1}},  {{xf, 1,-1},  {xs, 1, 1},  {xf, 1, 1}}, // left
-        {{xf, 1, 1}, {xf,-1, 1}, {xs, 1, 1}},  {{xf,-1, 1},  {xs, 1, 1},  {xs,-1, 1}}, // top
-        {{xf,-1, 1}, {xs,-1, 1}, {xf,-1,-1}},  {{xf,-1,-1},  {xs,-1,-1},  {xs,-1, 1}}, // right
-        {{xf, 1,-1}, {xf,-1,-1}, {xf,-1, 1}},  {{xf, 1,-1},  {xf, 1, 1},  {xf,-1, 1}}  // back
+        {{xf, 1,-1}, {xf,-1,-1}, {xs, 1,-1}, { 0, 0,-1}},  {{xf,-1,-1},  {xs, 1,-1},  {xs,-1,-1}, {0, 0, -1}}, // base
+        {{xs, 1, 1}, {xs,-1, 1}, {xs, 1,-1}, {-1, 0, 0}},  {{xs,-1, 1},  {xs, 1,-1},  {xs,-1,-1}, {-1, 0, 0}}, // front
+        {{xf, 1,-1}, {xs, 1,-1}, {xs, 1, 1}, { 0, 1, 0}},  {{xf, 1,-1},  {xs, 1, 1},  {xf, 1, 1}, { 0, 1, 0}}, // left
+        {{xf, 1, 1}, {xf,-1, 1}, {xs, 1, 1}, { 0, 0, 1}},  {{xf,-1, 1},  {xs, 1, 1},  {xs,-1, 1}, { 0, 0, 1}}, // top
+        {{xf,-1, 1}, {xs,-1, 1}, {xf,-1,-1}, { 0,-1, 0}},  {{xf,-1,-1},  {xs,-1,-1},  {xs,-1, 1}, { 0,-1, 0}}, // right
+        {{xf, 1,-1}, {xf,-1,-1}, {xf,-1, 1}, { 1, 0, 0}},  {{xf, 1,-1},  {xf, 1, 1},  {xf,-1, 1}, { 1, 0, 0}}  // back
     };
 }
 
@@ -258,7 +258,8 @@ void vecToTri(const std::vector<std::vector<std::vector<float>>>& data, std::vec
         tris.push_back(Triangle(
             vec3(data[i][0][0], data[i][0][1], data[i][0][2]),
             vec3(data[i][1][0], data[i][1][1], data[i][1][2]),
-            vec3(data[i][2][0], data[i][2][1], data[i][2][2])
+            vec3(data[i][2][0], data[i][2][1], data[i][2][2]),
+            vec3(data[i][3][0], data[i][3][1], data[i][3][2])
         ));
     }
 }

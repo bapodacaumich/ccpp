@@ -199,4 +199,6 @@ CMakeFiles/run_ccpp.dir/src/run_ccpp.cpp.o: \
  /usr/include/c++/11/bits/vector.tcc \
  /home/brandon/cplusplusport/ccpp/include/triangle_struct.hpp \
  /home/brandon/cplusplusport/ccpp/include/utils.hpp \
- /home/brandon/cplusplusport/ccpp/include/vec3_struct.hpp
+ /home/brandon/cplusplusport/ccpp/include/vec3_struct.hpp \
+ /home/brandon/cplusplusport/ccpp/include/triangle_struct.hpp \
+ /home/brandon/cplusplusport/ccpp/include/cuda_kernels.h

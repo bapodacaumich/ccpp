@@ -1,4 +1,5 @@
 #include "cone_camera.hpp"
+#include "cuda_kernels.h"
 #include "obs.hpp"
 #include "utils.hpp"
 #include "viewpoint_generator.hpp"
@@ -75,7 +76,7 @@ void ViewpointGenerator::initialize() {
 
     // then populate unfiltered_viewpoints
     std::cout << "Populating Viewpoints..." << std::endl;
-    if (!this->populateViewpoints()) { return; };
+    if (!this->populateViewpoints()) { return; }; // return if no viewpoints were added
 
     // once we know how many viable viewpoints there are, we can initialize the coverage map
     std::cout << "Allocating Coverage Map..." << std::endl;
@@ -119,9 +120,15 @@ void ViewpointGenerator::greedy() {
 
     // iterate over all viewpoints (upper bound for number of viewpoints we need to check)
     std::cout << std::endl;
-    for (size_t i = 0; i < this->unfiltered_viewpoints.size(); i++) {
+    // for (size_t i = 0; i < this->unfiltered_viewpoints.size(); i++) {
+    for (size_t i = 0; i < 5; i++) {
         // update marginal gains and decending pointers
         this->updateMarginalGainPtrs(filtered_coverage, sorted_marginal_gain);
+
+        std::cout << marginal_gain[0] << std::endl;
+        std::cout << marginal_gain[1] << std::endl;
+        std::cout << marginal_gain[2] << std::endl;
+        std::cout << marginal_gain[3] << std::endl;
 
         // get viewpoint index of maximal marginal gain and add to unfiltered viewpoints
         size_t idx_to_add = sorted_marginal_gain[0] - marginal_gain;
@@ -187,6 +194,7 @@ void ViewpointGenerator::updateMarginalGainPtrs(
 }
 
 void ViewpointGenerator::populateCoverage() {
+
     // populate the filtered or unfiltered coverage map
     for (size_t vp_idx=0; vp_idx < this->unfiltered_viewpoints.size(); vp_idx++) {
         std::cout << "\rPopulating Coverage: " << vp_idx << "/" << this->unfiltered_viewpoints.size() << " viewpoints";
@@ -221,8 +229,42 @@ void ViewpointGenerator::countMeshFaces() {
 }
 
 bool ViewpointGenerator::populateViewpoints() {
+    // size_t num_successful_viewpoints = 0;
+    // size_t num_failed_viewpoints = 0;
+    // for (size_t obs_idx = 0; obs_idx < this->structure.size(); obs_idx++) {
+    //     for (size_t face_idx = 0; face_idx < this->structure[obs_idx].faces.size(); face_idx++) {
+    //         vec3 centroid = this->structure[obs_idx].faces[face_idx].getCentroid();
+    //         vec3 normal = this->structure[obs_idx].faces[face_idx].n;
+    //         Viewpoint vp = Viewpoint(
+    //             centroid + normal * this->vgd, // TODO: dynamic vgd for obstacle avoidance
+    //             normal * -1.0f
+    //             );
+    //         if (!this->collision(vp)) { // make sure viewpoint is not inside an obstacle
+    //             std::vector<vec3*> points_ptr = {
+    //                 &(this->structure[obs_idx].faces[face_idx].a),
+    //                 &(this->structure[obs_idx].faces[face_idx].b),
+    //                 &(this->structure[obs_idx].faces[face_idx].c),
+    //                 };
+    //             if (this->collision(vp.pose, points_ptr)) { // make sure viewpoint can see triangle
+    //                 num_successful_viewpoints++;
+    //                 this->unfiltered_viewpoints.push_back(vp);
+    //                 std::cout << "Successfully added viewpoint at " << vp.pose.toString() << std::endl;
+    //             } else {
+    //                 num_failed_viewpoints++;
+    //                 std::cout << "Viewpoint at " << vp.pose.toString() << " cannot see own triangle" << std::endl;
+    //             }
+    //         } else { // generate new viewpoint somehow --> using intersection?
+    //             num_failed_viewpoints++;
+    //             std::cout << "Collision detected for viewpoint at " << vp.pose.toString() << std::endl;
+    //         }
+    //     }
+    // }
+    // std::cout << "Successfully added " << num_successful_viewpoints << "/" << num_failed_viewpoints + num_successful_viewpoints << " viewpoints" << std::endl;
+    // return num_successful_viewpoints > 0;
+
     size_t num_successful_viewpoints = 0;
     size_t num_failed_viewpoints = 0;
+    std::vector<Viewpoint> sampled_viewpoints = std::vector<Viewpoint>();
     for (size_t obs_idx = 0; obs_idx < this->structure.size(); obs_idx++) {
         for (size_t face_idx = 0; face_idx < this->structure[obs_idx].faces.size(); face_idx++) {
             vec3 centroid = this->structure[obs_idx].faces[face_idx].getCentroid();
@@ -231,26 +273,39 @@ bool ViewpointGenerator::populateViewpoints() {
                 centroid + normal * this->vgd, // TODO: dynamic vgd for obstacle avoidance
                 normal * -1.0f
                 );
-            if (!this->collision(vp)) { // make sure viewpoint is not inside an obstacle
-                std::vector<vec3*> points_ptr = {
-                    &(this->structure[obs_idx].faces[face_idx].a),
-                    &(this->structure[obs_idx].faces[face_idx].b),
-                    &(this->structure[obs_idx].faces[face_idx].c),
-                    };
-                if (this->collision(vp.pose, points_ptr)) { // make sure viewpoint can see triangle
-                    num_successful_viewpoints++;
-                    this->unfiltered_viewpoints.push_back(vp);
-                    // std::cout << "Successfully added viewpoint at " << vp.pose.toString() << std::endl;
-                } else {
-                    num_failed_viewpoints++;
-                    // std::cout << "Viewpoint at " << vp.pose.toString() << " cannot see own triangle" << std::endl;
-                }
-            } else { // generate new viewpoint somehow --> using intersection?
-                num_failed_viewpoints++;
-                // std::cout << "Collision detected for viewpoint at " << vp.pose.toString() << std::endl;
-            }
+            sampled_viewpoints.push_back(vp);
         }
     }
+
+    bool** collisions = new bool*[sampled_viewpoints.size()];
+    for (size_t i = 0; i < sampled_viewpoints.size(); i++) {
+        collisions[i] = new bool[this->num_mesh_faces];
+        for (size_t j = 0; j < this->num_mesh_faces; j++) {
+            collisions[i][j] = false;
+        }
+    }
+
+    // cuda_kernel_intersect_triangles(
+    //     sampled_viewpoints,
+    //     this->all_faces,
+    //     collisions
+    // );
+
+    std::cout << "Collision Matrix:" << std::endl;
+    for (size_t i = 0; i < sampled_viewpoints.size(); i++) {
+        std::cout << sampled_viewpoints[i].pose.toString() << ": ";
+        for (size_t j = 0; j < this->num_mesh_faces; j++) {
+            std::cout << collisions[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    for (size_t i = 0; i < sampled_viewpoints.size(); i++) {
+        delete[] collisions[i];
+    }
+    delete[] collisions;
+
+
     std::cout << "Successfully added " << num_successful_viewpoints << "/" << num_failed_viewpoints + num_successful_viewpoints << " viewpoints" << std::endl;
     return num_successful_viewpoints > 0;
 }

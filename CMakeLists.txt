@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.12)
-project(CoverageSetGeneration LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.22)
+project(CoverageSetGeneration LANGUAGES CXX CUDA)
 
 if (UNIX)
     set(CMAKE_C_COMPILER "/usr/bin/gcc")
@@ -54,11 +54,12 @@ include_directories(
 )
 
 # find headers
-file(GLOB HEADER_FILES_HPP ${CMAKE_SOURCE_DIR}/include/*.hpp)
+file(GLOB HEADER_FILES_HPP ${CMAKE_SOURCE_DIR}/include/*.hpp ${CMAKE_SOURCE_DIR}/include/*.h)
 message(STATUS "Header Files: ${HEADER_FILES_HPP}")
 
 set(SOURCES
     ${CMAKE_SOURCE_DIR}/src/cone_camera.cpp
+    ${CMAKE_SOURCE_DIR}/src/cuda_kernels.cu
     ${CMAKE_SOURCE_DIR}/src/obs.cpp
     ${CMAKE_SOURCE_DIR}/src/rrtz.cpp
     ${CMAKE_SOURCE_DIR}/src/station.cpp
@@ -66,6 +67,9 @@ set(SOURCES
     ${CMAKE_SOURCE_DIR}/src/viewpoint_generator.cpp
 )
 
-add_executable(station_example ${SOURCES} ${CMAKE_SOURCE_DIR}/examples/station_example.cpp)
+# add_executable(station_example ${SOURCES} ${CMAKE_SOURCE_DIR}/examples/station_example.cpp)
 
-add_executable(run_ccpp ${SOURCES} ${CMAKE_SOURCE_DIR}/src/run_ccpp.cpp)
+add_executable(run_ccpp ${SOURCES} ${CMAKE_SOURCE_DIR}/src/run_ccpp.cpp ${HEADER_FILES_HPP})
+
+#link cuda
+target_link_libraries(run_ccpp PRIVATE ${CUDA_CUDA_LIBRARY})
