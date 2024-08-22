@@ -1,4 +1,5 @@
 .*
 !/.gitignore
-/build/**
-build
+build/**
+build/*
+build/
