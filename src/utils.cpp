@@ -1,9 +1,13 @@
+#include "cuda_kernels.h"
 #include "node3d_struct.hpp"
 #include "obs.hpp"
 #include "triangle_struct.hpp"
 #include "utils.hpp"
 #include "vec3_struct.hpp"
+#include "viewpoint_struct.hpp"
+#include "viewpoint_coverage_gain_struct.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -264,14 +268,14 @@ void vecToTri(const std::vector<std::vector<std::vector<float>>>& data, std::vec
     }
 }
 
-bool allTrue(const bool* arr, size_t len) {
+bool allTrue(const std::vector<bool>& arr) {
     /*
     * Check if all elements in an array are true
     * @param arr: const bool*, input array
     * @param len: size_t, length of array
     * @return bool, true if all elements are true
     */
-    for (size_t i = 0; i < len; ++i) {
+    for (size_t i = 0; i < arr.size(); ++i) {
         if (!arr[i]) { 
             return false; 
         }
@@ -279,7 +283,7 @@ bool allTrue(const bool* arr, size_t len) {
     return true;
 }
 
-void numTrue(const bool* arr, size_t len, size_t& num_true) {
+void numTrue(const std::vector<bool>& arr, size_t& num_true) {
     /*
     * Count the number of true elements in an array
     * @param arr: const bool*, input array
@@ -287,9 +291,89 @@ void numTrue(const bool* arr, size_t len, size_t& num_true) {
     * @param num_true: size_t&, output number of true elements
     */
     num_true = 0;
-    for (size_t i = 0; i < len; ++i) {
+    for (size_t i = 0; i < arr.size(); ++i) {
         if (arr[i]) { 
             ++num_true; 
         }
     }
+}
+
+bool allZeroGain(const std::vector<VP_Coverage_Gain>& arr) {
+    /*
+    * Check if all elements.gain in an array are zero
+    * @param arr: const std::vector<VP_Coverage_Gain>&, input array
+    * @param all_zero: bool&, output true if all elements are zero
+    */
+    for (size_t i = 0; i < arr.size(); ++i) {
+        if (arr[i].gain > 0) { 
+            return false;
+        }
+    }
+    return true;
+}
+
+void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Triangle*>& triangles, std::vector<std::vector<bool>>& coverage_map) {
+    /*
+    * Get the coverage map for a set of viewpoints and triangles
+    * @param viewpoints: const std::vector<Viewpoint>&, input viewpoints
+    * @param triangles: const std::vector<Triangle>&, input triangles
+    * @param coverage_map: bool**, output coverage map
+    */
+    std::ostringstream message;
+    auto now = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < viewpoints.size(); ++i) {
+        std::vector<bool> coverage;
+        cuda_kernel_coverage(viewpoints[i], triangles, coverage, nullptr);
+        for (size_t j = 0; j < coverage.size(); j++) {
+            coverage[j] = !coverage[j];
+        }
+        coverage_map.push_back(coverage);
+        auto prev_now = now;
+        now = std::chrono::high_resolution_clock::now();
+        // Calculate the duration
+        std::chrono::duration<double> duration = now - prev_now;
+        double loop_period = duration.count();
+
+        // Output the duration in seconds
+        double seconds_remaining = loop_period * (viewpoints.size() - i);
+        double minutes_remaining = seconds_remaining / 60.0;
+        seconds_remaining = std::fmod(seconds_remaining, 60.0);
+        message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
+        displayProgressBar(static_cast<double>(i) / viewpoints.size(), 150, message);
+        message.str("");
+    }
+}
+
+void displayProgressBar(double progress, int width, std::ostringstream& message) {
+    // Clear the current line
+    std::cout << "\r";
+
+    // Calculate the number of '#' characters
+    int pos = static_cast<int>(width * progress);
+    
+    // Draw the progress bar
+    std::cout << "[";
+    for (int i = 0; i < width; ++i) {
+        if (i < pos) 
+            std::cout << "#";
+        else 
+            std::cout << " ";
+    }
+    std::cout << "] " << std::fixed << std::setprecision(1) << (progress * 100) << "%";
+
+    std::cout << message.str();
+    
+    // Flush the output to ensure it updates immediately
+    std::cout.flush();
+}
+
+void getIncidenceAngle(vec3 viewdir, Triangle tri, float& angle) {
+    /*
+    * Get the incidence angle between a view direction and a triangle (always positive and between 0 and pi)
+    * @param viewdir: vec3, input view direction
+    * @param tri: Triangle, input triangle
+    * @param angle: float&, output incidence angle
+    */
+    vec3 normal = tri.n;
+    angle = acosf(fabsf(viewdir.dot(normal)) / (viewdir.norm() * normal.norm() + 1e-9f));
 }

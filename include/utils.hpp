@@ -5,6 +5,8 @@
 #include "obs.hpp"
 #include "triangle_struct.hpp"
 #include "vec3_struct.hpp"
+#include "viewpoint_struct.hpp"
+#include "viewpoint_coverage_gain_struct.hpp"
 
 #include <string>
 #include <vector>
@@ -23,7 +25,11 @@ void loadCube(std::vector<std::vector<std::vector<float>>>& data, float xs=-1, f
 void convertFlatToTriangle(const std::vector<std::vector<float>>& flatData, std::vector<Triangle>& tris);
 void loadStationOBS(std::vector<OBS>& obsVec);
 void vecToTri(const std::vector<std::vector<std::vector<float>>>& data, std::vector<Triangle>& tris);
-bool allTrue(const bool* arr, size_t len);
-void numTrue(const bool* arr, size_t len, size_t& num_true);
+bool allTrue(const std::vector<bool>& arr);
+void numTrue(const std::vector<bool>& arr, size_t& num_true);
+bool allZeroGain(const std::vector<VP_Coverage_Gain>& arr);
+void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Triangle*>& triangles, std::vector<std::vector<bool>>& coverage_map);
+void displayProgressBar(double progress, int width, std::ostringstream& message);
+void getIncidenceAngle(vec3 viewdir, Triangle tri, float& angle);
 
 #endif // UTILS_HPP
