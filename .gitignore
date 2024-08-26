@@ -3,3 +3,6 @@
 /build/**
 /build/*
 /build/
+/data/coverage_maps/**
+/data/coverage_maps/*
+/data/coverage_maps/
