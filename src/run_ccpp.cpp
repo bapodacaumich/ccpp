@@ -26,6 +26,7 @@ int main(int argc, char** argv) {
 
     std::vector<OBS> obsVec;
     loadStationOBS(obsVec);
+
     // std::vector<OBS> obsVec;
     // // load in cube data and convert to triangles
     // std::vector<std::vector<std::vector<float>>> cubeData;
@@ -37,15 +38,15 @@ int main(int argc, char** argv) {
     // OBS obs = OBS(triCubeFaces);
     // obsVec.push_back(obs);
 
-    float vgd = 5.0f;
+    float vgd = 2.0f;
     ViewpointGenerator vg(obsVec, vgd);
-    std::string save_file = "station.csv";
+    std::string save_file = "station_remeshed_coverage_2m.csv";
 
-    // vg.populateCoverage();
-    // vg.saveCoverageMap(save_file);
+    vg.populateCoverage();
+    vg.saveCoverageMap(save_file);
 
-    // save coverage map
-    vg.loadCoverageMap(save_file);
+    // // save coverage map
+    // vg.loadCoverageMap(save_file);
 
     std::cout << "Running Greedy.." << std::endl;
     std::vector<Viewpoint> coverage_viewpoints = vg.getCoverageViewpoints();
@@ -60,10 +61,13 @@ int main(int argc, char** argv) {
         vp_data.push_back(coverage_viewpoints[i].viewdir.z);
         viewpoint_data_save.push_back(vp_data);
     }
-    saveCSV("../data/coverage_viewpoint_sets/station_viewpoints_coverage.csv", viewpoint_data_save);
+    saveCSV("../data/coverage_viewpoint_sets/coverage_2m.csv", viewpoint_data_save);
+
+    std::cout << "\n-----------------Coverage Viewpoints-----------------\n";
     for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
         std::cout << "Viewpoint " << i << ": pose=" << coverage_viewpoints[i].pose.toString() << " viewdir=" << coverage_viewpoints[i].viewdir.toString() << std::endl;
     }
 
+    // std::cout << std::endl;
     return 0;
 }

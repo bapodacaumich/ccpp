@@ -31,5 +31,6 @@ bool allZeroGain(const std::vector<VP_Coverage_Gain>& arr);
 void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Triangle*>& triangles, std::vector<std::vector<bool>>& coverage_map);
 void displayProgressBar(double progress, int width, std::ostringstream& message);
 void getIncidenceAngle(vec3 viewdir, Triangle tri, float& angle);
+void pinhole_camera_test( bool& visible, vec3 pose, vec3 viewdir, vec3 point, float hfov, float vfov);
 
 #endif // UTILS_HPP

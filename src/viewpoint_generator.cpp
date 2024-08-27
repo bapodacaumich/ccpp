@@ -81,6 +81,30 @@ void ViewpointGenerator::initialize() {
     // then populate unfiltered_viewpoints
     std::cout << "Populating Viewpoints..." << std::endl;
     if (!this->populateViewpoints()) { return; }; // return if no viewpoints were added
+
+    // compute incidence angle between each viewpoint and each face
+    cuda_kernel_inc_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
+}
+
+void ViewpointGenerator::printIncidenceAngles() {
+    // print viewpoints and faces with corresponding indices, then print incidence angles organized wrt indices
+    for (size_t i=0; i < this->unfiltered_viewpoints.size(); i++) {
+        std::cout << "Viewpoint " << i << ": " << this->unfiltered_viewpoints[i].pose.toString() << std::endl;
+    }
+
+    for (size_t i=0; i < this->num_mesh_faces; i++) {
+        std::cout << "Face " << i << ": " << this->all_faces[i]->toString() << std::endl;
+    }
+
+    // print inc_angles
+    std::cout << "Incidence Angles:" << std::endl;
+    for (size_t vp_idx = 0; vp_idx < this->unfiltered_viewpoints.size(); vp_idx++) {
+        std::cout << "Viewpoint " << vp_idx << ": "; 
+        for (size_t face_idx = 0; face_idx < this->num_mesh_faces; face_idx++) {
+            std::cout << this->inc_angle_map[vp_idx][face_idx] << ", ";
+        }
+        std::cout << std::endl;
+    }
 }
 
 void ViewpointGenerator::printCoverageMap() {
@@ -98,10 +122,10 @@ void ViewpointGenerator::printCoverageMap() {
 void ViewpointGenerator::saveCoverageMap(std::string& filename) {
     // save coverage map to file
     std::vector<std::vector<float>> data;
-    for (size_t i = 0; i < coverage_map.size(); i++) {
+    for (size_t i = 0; i < this->coverage_map.size(); i++) {
         std::vector<float> row;
-        for (size_t j = 0; j < coverage_map[i].size(); j++) {
-            row.push_back(coverage_map[i][j] ? 1.0f : 0.0f);
+        for (size_t j = 0; j < this->coverage_map[i].size(); j++) {
+            row.push_back(this->coverage_map[i][j] ? 1.0f : 0.0f);
         }
         data.push_back(row);
     }
@@ -159,6 +183,11 @@ void ViewpointGenerator::greedy() {
         if (allTrue(filtered_coverage) || allZeroGain(this->vpcg_unfiltered)) { break; }
     }
     this->sortUpdateMarginalGain(filtered_coverage);
+    size_t num_covered = 0;
+    for (size_t i = 0; i < filtered_coverage.size(); i++) {
+        if (filtered_coverage[i]) { num_covered++; }
+    }
+    std::cout << "Number of faces covered=" << num_covered << "/" << this->num_mesh_faces << " or " << filtered_coverage.size() << std::endl;
 }
 
 void ViewpointGenerator::sortUpdateMarginalGain(
@@ -171,7 +200,10 @@ void ViewpointGenerator::sortUpdateMarginalGain(
         for (size_t face_idx = 0; face_idx < this->num_mesh_faces; face_idx++) {
             // if the viewpoint covers the face and the face is not already covered, increment gain
             if (!filtered_coverage[face_idx] && this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx]) { 
-                gain++; 
+                // define gain function here
+                // 1 is added to avoid division by zero and normalize best incidence angle to gain = 1
+                // gain += 1/(inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] + 1);
+                gain++;
             }
         }
         // update the marginal gain array (marginal_gain)
@@ -252,6 +284,7 @@ bool ViewpointGenerator::populateViewpoints() {
             );
         sampled_viewpoints.push_back(vp);
         sampled_face_indices.push_back(face_idx);
+
     }
 
     bool* collisions = new bool[sampled_viewpoints.size()];
@@ -270,19 +303,21 @@ bool ViewpointGenerator::populateViewpoints() {
 
 
     // check each viewpoint-face combination for ray casting collisions
-    cuda_kernel_many(
+    std::vector<bool> in_collision;
+    cuda_kernel_collision_points(
         sampled_viewpoints,
-        sampled_face_indices,
         this->all_faces,
-        collisions,
-        nullptr
+        vec3(-30.0f, -30.0f, -30.0f),
+        in_collision
     );
 
     for (size_t i = 0; i < sampled_viewpoints.size(); i++) {
-        if (!collisions[i]) {
+        if (!in_collision[i]) {
+            // std::cout << "Viewpoint " << sampled_viewpoints[i].pose.toString() << " is not in collision" << std::endl;
             this->unfiltered_viewpoints.push_back(sampled_viewpoints[i]);
             num_successful_viewpoints++;
         } else {
+            // std::cout << "Viewpoint " << i << " : "<< sampled_viewpoints[i].pose.toString() << " is in collision" << std::endl;
             num_failed_viewpoints++;
         }
     }
@@ -312,7 +347,7 @@ bool ViewpointGenerator::populateViewpoints() {
     // }
     // delete[] int_points;
 
-    delete[] collisions;
+    // delete[] collisions;
 
 
     std::cout << "Successfully added " << num_successful_viewpoints << "/" << num_failed_viewpoints + num_successful_viewpoints << " viewpoints" << std::endl;

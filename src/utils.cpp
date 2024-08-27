@@ -144,7 +144,7 @@ bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data,
         std::stringstream ss(line);
         std::string cell;
         int num_cells = 0;
-        while (std::getline(ss, cell, ',') && num_cells < rowlen)
+        while (std::getline(ss, cell, ' ') && num_cells < rowlen)
         {
             try {
                 row.push_back(std::stof(cell)); // Convert string to float and add to row
@@ -233,8 +233,8 @@ void loadStationOBS(std::vector<OBS>& obsVec) {
     * instantiate station into obstacle objects
     * @param obsVec: std::vector<OBS>, output data
     */
-    size_t num_obstacles = 15;
-    std::string model_dir = "../data/model_convex/";
+    size_t num_obstacles = 10;
+    std::string model_dir = "../data/model_remeshed/";
 
     for (size_t i=0; i < num_obstacles; ++i) {
         // load triangle mesh data
@@ -376,4 +376,44 @@ void getIncidenceAngle(vec3 viewdir, Triangle tri, float& angle) {
     */
     vec3 normal = tri.n;
     angle = acosf(fabsf(viewdir.dot(normal)) / (viewdir.norm() * normal.norm() + 1e-9f));
+}
+
+void pinhole_camera_test(
+    bool& visible, 
+    vec3 pose, 
+    vec3 viewdir, 
+    vec3 point,
+    float hfov, // rad
+    float vfov // rad
+    ) {
+    // calculate the angle between the view direction and the vector from the viewpoint to the intersection point
+    vec3 vec = point - pose;
+    float norm_dot = vec.dot(viewdir);
+
+    // check if point is behind camera
+    if (norm_dot <= 0) {
+        visible = false;
+        return;
+    }
+
+    // project point onto view plane
+    float d = 1.0f; // distance from viewpoint to view plane
+    float w = 2 * d * tanf(hfov/2);
+    float h = 2 * d * tanf(vfov/2);
+    vec3 point_proj = (vec/norm_dot - viewdir) * d;
+    vec3 v_hat = vec3(
+        viewdir.z * cosf( atan2f(viewdir.y, viewdir.x) ),
+        viewdir.y * sinf( atan2f(viewdir.y, viewdir.x) ),
+        sqrtf(viewdir.x * viewdir.x + viewdir.y * viewdir.y) // 0 to 1
+    );
+    vec3 u_hat = v_hat.cross(viewdir);
+
+    // check if point is within field of view
+    if (abs(point_proj.dot(u_hat)) < w/2 && abs(point_proj.dot(v_hat)) < h/2) {
+        visible = true;
+        return;
+    }
+
+    visible = false;
+    return;
 }

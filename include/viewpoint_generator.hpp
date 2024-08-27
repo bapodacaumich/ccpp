@@ -33,6 +33,7 @@ class ViewpointGenerator {
 
         // need to create map of coverage for each viewpoint
         void populateCoverage();
+        void printIncidenceAngles();
 
     private:
 
@@ -48,7 +49,7 @@ class ViewpointGenerator {
 
         // coverage map
         std::vector<std::vector<bool>> coverage_map; // viewpoints x num_mesh_faces
-        std::vector<std::vector<bool>> inc_angle_map; // viewpoints x num_mesh_faces
+        std::vector<std::vector<float>> inc_angle_map; // viewpoints x num_mesh_faces
 
         // initialize for constructor
         void initialize();

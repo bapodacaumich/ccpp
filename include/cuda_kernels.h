@@ -7,6 +7,15 @@
 
 #include <vector>
 
+// __device__ void pinhole_camera(
+//     bool &visible,
+//     vec3 pose,
+//     vec3 viewdir,
+//     vec3 point,
+//     float hfov, // rad
+//     float vfov // rad
+// );
+
 // given a viewpoint: determine visible (can see all three vertices) triangles -- true means not visible (collision during raycast)
 // populate int_points with intersection points between rays cast to each vertex of triangle in question and other triangles
 extern "C" void cuda_kernel_coverage(
@@ -25,10 +34,19 @@ extern "C" void cuda_kernel_many(
     vec3** int_points
 );
 
+// given a list of viewpoints and triangles and a point in the free space, determine if each viewpoint is in collision
+// * even number of intersections between viewpoint and free space point means no collision
+extern "C" void cuda_kernel_collision_points(
+    const std::vector<Viewpoint>& viewpoints,
+    const std::vector<Triangle*>& faces,
+    const vec3 free_space_point,
+    std::vector<bool>& in_collision // populate with true/false for each viewpoint
+);
+
 extern "C" void cuda_kernel_inc_angle(
-    const std::vector<Viewpoint>& viewpoint,
-    const std::vector<Triangle*>& triangles,
-    std::vector<float>& inc_angles // populate with incidence angles for each triangle
+    const std::vector<Viewpoint>& viewpoints,
+    const std::vector<Triangle*>& faces,
+    std::vector<std::vector<float>>& inc_angles // populate with incidence angles for each triangle
 );
 
 #endif // CUDA_KERNELS_H
