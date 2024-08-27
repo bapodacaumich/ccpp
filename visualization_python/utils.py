@@ -4,12 +4,10 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-def obs_trisurf(meshes, show=True, surface=True, wireframe=True, lw=0.1):
+def obs_trisurf(meshes, coverage, show=True, surface=True, wireframe=True, lw=0.1):
     """
     plots a list of OBS objects by face
     """
-    # ax = plt.figure().add_subplot(projection='3d')
-
     fig = plt.figure()
     ax = Axes3D(fig, auto_add_to_figure=False)
     fig.add_axes(ax)
@@ -19,7 +17,7 @@ def obs_trisurf(meshes, show=True, surface=True, wireframe=True, lw=0.1):
             y = [x[1] for x in face]
             z = [x[2] for x in face]
             verts = [list(zip(x,y,z))]
-            pc = Poly3DCollection(verts)
+            pc = Poly3DCollection(verts, fc='red')
             pc.set_alpha(0.2)
             if surface: ax.add_collection3d(pc)
             x.append(x[0])

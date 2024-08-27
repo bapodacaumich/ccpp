@@ -44,6 +44,7 @@ class ViewpointGenerator {
         std::vector<Triangle*> all_faces;
         std::vector<Viewpoint> unfiltered_viewpoints;
         std::vector<Viewpoint> coverage_viewpoints;
+        std::vector<bool> filtered_coverage; // coverage of 'coverage_viewpoints'
         std::vector<VP_Coverage_Gain> vpcg_unfiltered;
         std::vector<VP_Coverage_Gain> vpcg_filtered;
 
@@ -58,13 +59,13 @@ class ViewpointGenerator {
 
         bool populateViewpoints();
         void countMeshFaces();
-        void sortUpdateMarginalGain(const std::vector<bool>& filtered_coverage);
+        void sortUpdateMarginalGain();
 
         void greedy(); // greedy algorithm to select viewpoints and put in coverage_viewpoints
 
 
         // use coverage map and update filtered_coverage
-        void updateCoverage(std::vector<bool>& filtered_coverage);
+        void updateCoverage();
         void setUpCoverageGain();
 };
 

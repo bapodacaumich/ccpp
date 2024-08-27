@@ -161,13 +161,13 @@ void ViewpointGenerator::greedy() {
 
     this->setUpCoverageGain();
 
-    std::vector<bool> filtered_coverage(this->num_mesh_faces, false);
+    this->filtered_coverage = std::vector<bool>(this->num_mesh_faces, false);
 
     // iterate over number of viewpoints (most time we can add viewpoints to this->coverage_viewpoints)
     std::cout << "Number of unfiltered viewpoints=" << this->unfiltered_viewpoints.size() << std::endl;
     for (size_t i = 0; i < this->unfiltered_viewpoints.size(); i++) {
         // each iteration sort the viewpoint-gain objects
-        this->sortUpdateMarginalGain(filtered_coverage);
+        this->sortUpdateMarginalGain();
 
         // get viewpoint with maximal gain
         this->coverage_viewpoints.push_back(this->vpcg_unfiltered.begin()->vp);
@@ -177,29 +177,27 @@ void ViewpointGenerator::greedy() {
         this->vpcg_unfiltered.erase(this->vpcg_unfiltered.begin());
 
         // update filtered coverage map
-        this->updateCoverage(filtered_coverage);
+        this->updateCoverage();
 
         // check if we have covered all faces
-        if (allTrue(filtered_coverage) || allZeroGain(this->vpcg_unfiltered)) { break; }
+        if (allTrue(this->filtered_coverage) || allZeroGain(this->vpcg_unfiltered)) { break; }
     }
-    this->sortUpdateMarginalGain(filtered_coverage);
+    this->sortUpdateMarginalGain();
     size_t num_covered = 0;
-    for (size_t i = 0; i < filtered_coverage.size(); i++) {
-        if (filtered_coverage[i]) { num_covered++; }
+    for (size_t i = 0; i < this->filtered_coverage.size(); i++) {
+        if (this->filtered_coverage[i]) { num_covered++; }
     }
     std::cout << "Number of faces covered=" << num_covered << "/" << this->num_mesh_faces << " or " << filtered_coverage.size() << std::endl;
 }
 
-void ViewpointGenerator::sortUpdateMarginalGain(
-    const std::vector<bool>& filtered_coverage         // coverage map for filtered viewpoints (already covered)
-    ) {
+void ViewpointGenerator::sortUpdateMarginalGain() {
 
     // update marginal gain as we search for the maximal element
     for (size_t i = 0; i < this->vpcg_unfiltered.size(); i++) {
         int gain = 0;
         for (size_t face_idx = 0; face_idx < this->num_mesh_faces; face_idx++) {
             // if the viewpoint covers the face and the face is not already covered, increment gain
-            if (!filtered_coverage[face_idx] && this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx]) { 
+            if (!(this->filtered_coverage[face_idx]) && this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx]) { 
                 // define gain function here
                 // 1 is added to avoid division by zero and normalize best incidence angle to gain = 1
                 // gain += 1/(inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] + 1);
@@ -225,12 +223,12 @@ void ViewpointGenerator::sortUpdateMarginalGain(
     );
 }
 
-void ViewpointGenerator::updateCoverage(std::vector<bool>& filtered_coverage) {
+void ViewpointGenerator::updateCoverage() {
     // update the filtered coverage map based on viewpoints added to this->coverage_viewpoints
     for (size_t i = 0; i < this->vpcg_filtered.size(); i++) {
         for (size_t j = 0; j < this->num_mesh_faces; j++) {
             if (this->coverage_map[vpcg_filtered[i].vp_map_idx][j]) {
-                filtered_coverage[j] = true;
+                this->filtered_coverage[j] = true;
             }
         }
     }
