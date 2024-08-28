@@ -72,7 +72,7 @@ bool RRTZ::run(std::vector<vec3>& path) {
 
         if (this->debug) { std::cout << "\rIteration=" << this->tree_nodes.size() << " | Failed Iterations=" << num_failed_iterations << std::flush; }
 
-        if (r < 0.5) { 
+        if (r < 0.5 && this->tree_nodes.size() > 1) { 
             // extend to goal
             Plane plane = this->sample_plane(this->goal);
             if (this->extend(plane, cost)) {
@@ -95,12 +95,22 @@ bool RRTZ::run(std::vector<vec3>& path) {
         } else {
             // extend to random plane
             bool success = false;
-            for (size_t i = 0; i < 5; i++){
+            // for (size_t i = 0; i < 5; i++){
+            size_t num_stuck = 0;
+            while (!success) {
                 Plane plane = this->sample_plane();
+                // plane.point = this->start + vec3(-1.0f, 0.0f, 0.5f);
                 success = this->extend(plane, cost);
-                if (success) { break; }
+                // if (success) { break; }
+                num_stuck++;
+                if (num_stuck > 100) {
+                    Plane plane = this->sample_plane();
+                    plane.point = this->start + vec3(-1.0f, 0.0f, 0.0f);
+                    cost = 999;
+                    this->extend(plane, cost);
+                }
             }
-            if (!success) { num_failed_iterations++; }
+            // if (!success) { num_failed_iterations++; }
         }
     }
 
@@ -141,7 +151,7 @@ Plane RRTZ::sample_plane() {
         static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f,
         static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f
     );
-    std::cout << "\nSampled plane: point= " << pose.toString() << " | normal= " << normal.toString() << std::endl;
+    // std::cout << "\nSampled plane: point= " << pose.toString() << " | normal= " << normal.toString() << std::endl;
     return Plane(normal, pose);
 }
 
@@ -151,7 +161,7 @@ Plane RRTZ::sample_plane(vec3 point) {
         static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f,
         static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f
     );
-    std::cout << "\nSampled normal: point= " << point.toString() << " | normal= " << normal.toString() << std::endl;
+    // std::cout << "\nSampled normal: point= " << point.toString() << " | normal= " << normal.toString() << std::endl;
     return Plane(normal, point);
 }
 
@@ -160,7 +170,8 @@ bool RRTZ::extend(Plane p, float& cost) {
     // populate cost with cost to extended-to node
 
     // generate a node from start to the plane point
-    if (!this->collision(this->start, p.point)) {
+    if (!(this->collision(this->start, p.point))) {
+        // std::cout << "->No collision detected." << std::endl;
         Node3D start_node = Node3D(this->start, p.point, this->tree_nodes.size(), 0, 0);
         this->add_node_to_tree(start_node, cost);
         return true;
@@ -196,6 +207,9 @@ bool RRTZ::extend(Plane p, float& cost) {
         }
         bool* collisions = new bool[near_nodes.size()];
         cuda_kernel_many_ray(start_ray, end_ray, this->triangles, collisions, nullptr);
+        // for (size_t i = 0; i < near_nodes.size(); i++) {
+        //     std::cout << start_ray[i].toString() << " -> " << end_ray[i].toString() << " : "<< collisions[i] << " | ";
+        // }
         for (size_t i = 0; i < near_nodes.size(); i++) {
             if (!collisions[i]) {
                 float node_cost = (*near_nodes[i]).cost + heading_change(*near_nodes[i], p.point-intersection_points[i]);
@@ -288,8 +302,8 @@ bool RRTZ::collision(vec3 origin, vec3 end) {
 
     // get collisions from gpu
     bool ret;
-    bool* collisions = &ret;
-    cuda_kernel_many_ray(start_ray, end_ray, this->triangles, collisions, nullptr);
+    bool* ray_collision = &ret;
+    cuda_kernel_many_ray(start_ray, end_ray, this->triangles, ray_collision, nullptr);
 
     // cpu code:
     // for (size_t i = 0; i < this->obs.size(); i++) {

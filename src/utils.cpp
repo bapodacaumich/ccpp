@@ -264,7 +264,7 @@ void loadConvexStationOBS(std::vector<OBS>& obsVec) {
         std::vector<std::vector<float>> tri_data;
 
         // each row is a triangle (3 points = 9 numbers) and normals (3 numbers)
-        loadCSV(filename, tri_data, 12);
+        loadCSV(filename, tri_data, 12,',');
 
         // convert flat data to triangle objects
         std::vector<Triangle> tris;

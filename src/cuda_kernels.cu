@@ -166,6 +166,11 @@ __global__ void ray_int_tri(
 
     // find intersection point
     float t = f * e2.dot(q);
+    if (t < eps) {
+        pinhole_camera(result[res_idx], origin, viewdir, end);
+        // result[res_idx] = false;
+        return;
+    }
     vec3 intPoint = origin + vec * t;
     int_points[res_idx] = intPoint;
 
@@ -204,16 +209,10 @@ __global__ void ray_int_tri_many_2d(
     size_t tri_idx = blockIdx.y * blockDim.y + threadIdx.y; // n_tri
     size_t res_idx = tri_idx * n_vp + vp_idx; // n_tri * n_vp
 
-    // size_t tri_pt_idx = blockIdx.z * blockDim.z + threadIdx.z; // 3
-    // size_t ray_idx = vp_idx * 3 + tri_pt_idx; // n_ray
-    // size_t res_idx = tri_pt_idx * n_tri * n_vp + tri_idx * n_vp + vp_idx;
-
     if (vp_idx > n_vp - 1 || tri_idx > n_tri - 1) { return; }
-
 
     // instantiate ray
     vec3 origin = starts[vp_idx];
-    // vec3 viewdir = viewdirs[vp_idx];
     vec3 end = ends[vp_idx];
     vec3 vec = end - origin;
 
@@ -225,7 +224,6 @@ __global__ void ray_int_tri_many_2d(
 
     // if ray is parallel to triangle
     if (a > -eps && a < eps) {
-        // pinhole_camera(result[res_idx], origin, viewdir, end);
         result[res_idx] = false;
         return;
     }
@@ -234,20 +232,23 @@ __global__ void ray_int_tri_many_2d(
     vec3 s = origin - tri[tri_idx].a;
     float u = f * s.dot(h);
     if (u < 0.0f || u > 1.0f) {
-        // pinhole_camera(result[res_idx], origin, viewdir, end);
         result[res_idx] = false;
         return;
     }
     vec3 q = s.cross(e1);
     float v = f * vec.dot(q);
     if (v < 0.0f || u + v > 1.0f) {
-        // pinhole_camera(result[res_idx], origin, viewdir, end);
         result[res_idx] = false;
         return;
     }
 
     // find intersection point
     float t = f * e2.dot(q);
+    if (t < eps) {
+        result[res_idx] = false;
+        return;
+    }
+
     vec3 intPoint = origin + vec * t;
     int_points[res_idx] = intPoint;
 
@@ -258,7 +259,6 @@ __global__ void ray_int_tri_many_2d(
         return;
     }
 
-    // pinhole_camera(result[res_idx], origin, viewdir, end);
     result[res_idx] = false;
     return;
 }
@@ -326,6 +326,13 @@ __global__ void ray_int_tri_many(
 
     // find intersection point
     float t = f * e2.dot(q);
+
+    if (t < eps) {
+        pinhole_camera(result[res_idx], origin, viewdir, end);
+        // result[res_idx] = false;
+        return;
+    }
+
     vec3 intPoint = origin + vec * t;
     int_points[res_idx] = intPoint;
 
@@ -429,6 +436,23 @@ __global__ void collision_or(bool* vp_collision, const bool* ray_tri_collision, 
             if (ray_tri_collision[res_idx]) {
                 vp_collision[vp_idx] = true;
             }
+        }
+    }
+    return;
+}
+
+__global__ void collision_or_2d(bool* vp_collision, const bool* ray_tri_collision, size_t n_vp, size_t n_tri) {
+    // for each viewpoint-triangle correspondance, check if rays to each vertex collide with any other triangle. if so, write in true
+    // get viewpoint index
+    size_t vp_idx = blockIdx.x * blockDim.x + threadIdx.x; // n_vp
+
+    if (vp_idx > n_vp - 1) { return; } // n_tri = n_vp
+
+    vp_collision[vp_idx] = false;
+    for (size_t tri_idx = 0; tri_idx < n_tri; tri_idx++) {
+        size_t res_idx = tri_idx * n_vp + vp_idx;
+        if (ray_tri_collision[res_idx]) {
+            vp_collision[vp_idx] = true;
         }
     }
     return;
@@ -635,6 +659,8 @@ extern "C" void cuda_kernel_ray_int_plane(
         n_rays
     );
 
+    cudaDeviceSynchronize();
+
     // copy results back to host
     cudaMemcpy(result_arr, d_result, n_rays * sizeof(bool), cudaMemcpyDeviceToHost);
     cudaMemcpy(result_int_points, d_int_points, n_rays * sizeof(vec3), cudaMemcpyDeviceToHost);
@@ -740,7 +766,7 @@ extern "C" void cuda_kernel_many_ray(
     // reusing numBlocks
     numBlocks.x = (n_tri + threadsPerBlock.x - 1) / threadsPerBlock.x;
     numBlocks.y = 1; // numBlocks.z is already 1
-    collision_or<<<numBlocks, threadsPerBlock>>>(d_result, d_intersections, n_ray, n_tri);
+    collision_or_2d<<<numBlocks, threadsPerBlock>>>(d_result, d_intersections, n_ray, n_tri);
 
     cudaDeviceSynchronize();
 

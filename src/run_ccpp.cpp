@@ -42,11 +42,11 @@ int main(int argc, char** argv) {
     ViewpointGenerator vg(obsVec, vgd);
     std::string save_file = "station_remeshed_coverage_" + std::to_string(static_cast<int>(vgd)) + "m.csv";
 
-    // vg.populateCoverage();
-    // vg.saveCoverageMap(save_file);
+    vg.populateCoverage();
+    vg.saveCoverageMap(save_file);
 
-    // save coverage map
-    vg.loadCoverageMap(save_file);
+    // // save coverage map
+    // vg.loadCoverageMap(save_file);
 
     std::cout << "Running Greedy.." << std::endl;
     std::vector<Viewpoint> coverage_viewpoints = vg.getCoverageViewpoints();
@@ -78,6 +78,7 @@ int main(int argc, char** argv) {
         std::cout << "Viewpoint " << i << ": pose=" << coverage_viewpoints[i].pose.toString() << " viewdir=" << coverage_viewpoints[i].viewdir.toString() << std::endl;
     }
 
+    return 0;
     // Compute cost matrix for travelling salesman problem for all viewpoints
     size_t rrtz_iter = 2000;
     CostMatrix cm(rrtz_iter);

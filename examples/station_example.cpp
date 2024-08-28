@@ -24,6 +24,9 @@ int main(int argc, char** argv) {
     // create start and goal
     vec3 start = vec3(-0.5f, -2.0f, -0.5f);
     vec3 goal = vec3(1.0f, 4.0f, 0.0f);
+    vec3 offset = vec3(2.529f, 4.821, 2.591);
+    start += offset;
+    goal += offset;
     std::vector<vec3> path;
     solveStation(start, goal, path, max_nodes);
     return 0;
