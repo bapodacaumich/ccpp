@@ -1,3 +1,4 @@
+import os
 from os import getcwd
 from os.path import join
 import numpy as np
@@ -5,8 +6,7 @@ import numpy as np
 def load_single_mesh(mesh_file, new=False):
     """
     """
-    mesh_dir = join(getcwd(), mesh_file)
-    faces_normals = np.loadtxt(mesh_dir, delimiter=' ')
+    faces_normals = np.loadtxt(mesh_file, delimiter=' ')
     f = []
     n = []
     for face in faces_normals:
@@ -21,9 +21,9 @@ def load_meshes():
     meshes = []
     normals = []
     num_meshes = 10
-    mesh_dir = '../data/model_remeshed/'
+    mesh_dir = os.path.abspath(join(getcwd(),'..', 'data', 'model_remeshed'))
     for i in range(num_meshes):
-        meshfilename = mesh_dir + str(i) + '_faces_normals.csv'
+        meshfilename = join(mesh_dir, str(i) + '_faces_normals.csv')
         faces, normals = load_single_mesh(meshfilename)
         meshes.append(faces)
         normals.append(normals)

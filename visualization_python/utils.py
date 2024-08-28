@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-def obs_trisurf(meshes, coverage, show=True, surface=True, wireframe=True, lw=0.1):
+def obs_trisurf(meshes, coverage=None, show=True, surface=True, wireframe=True, lw=0.1):
     """
     plots a list of OBS objects by face
     """
@@ -17,7 +17,7 @@ def obs_trisurf(meshes, coverage, show=True, surface=True, wireframe=True, lw=0.
             y = [x[1] for x in face]
             z = [x[2] for x in face]
             verts = [list(zip(x,y,z))]
-            pc = Poly3DCollection(verts, fc='red')
+            pc = Poly3DCollection(verts, fc='tab:blue')
             pc.set_alpha(0.2)
             if surface: ax.add_collection3d(pc)
             x.append(x[0])
@@ -57,6 +57,7 @@ def coverage_area(self, pose, d=0.5, hfov=60, vfov=60):
 # def plot_path_direct(cam_dist, local, folder='always_start_best', station=True, ax=None):
 def plot_path_direct(file, ax=None):
     filepath = os.path.join(os.getcwd(), '..', 'data', 'coverage_viewpoint_sets', file)
+    # filepath = os.getcwd() + '\\data\\coverage_viewpoint_sets\\' + file
     # for file in os.listdir(dir):
     #     if file.endswith(".npy"): continue
     #     if (cam_dist == float(file[:3])):
