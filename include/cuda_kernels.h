@@ -25,6 +25,24 @@ extern "C" void cuda_kernel_coverage(
     vec3** int_points
 );
 
+extern "C" void cuda_kernel_ray_int_plane(
+    const std::vector<vec3>& ray_starts,
+    const std::vector<vec3>& ray_ends,
+    const vec3& plane_point,
+    const vec3& plane_normal,
+    bool* collisions,
+    vec3* int_points
+);
+
+// given a list of rays, determine if each ray is in collision with the list of triangles
+extern "C" void cuda_kernel_many_ray(
+    const std::vector<vec3>& start_ray,
+    const std::vector<vec3>& end_ray,
+    const std::vector<Triangle*>& triangles,
+    bool* collisions,
+    vec3** int_points // intersection points if not nullptr
+);
+
 // given a list of viewpoints mapped to triangles, determine if each viewpoint can see its respective triangle
 extern "C" void cuda_kernel_many(
     const std::vector<Viewpoint>& viewpoints,

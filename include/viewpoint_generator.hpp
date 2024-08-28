@@ -34,6 +34,7 @@ class ViewpointGenerator {
         // need to create map of coverage for each viewpoint
         void populateCoverage();
         void printIncidenceAngles();
+        void getFilteredCoverage(std::vector<bool>& filtered_coverage);
 
     private:
 

@@ -108,7 +108,7 @@ __device__ void pinhole_camera(
 // }
 
 // one viewpoint, mapped to many end points
-__global__ void ray_int_plane(
+__global__ void ray_int_tri(
     bool *result, // flattened 3d
     vec3 *int_points, // flattened 3d
     const vec3 origin,  // vp (vec3)
@@ -185,7 +185,7 @@ __global__ void ray_int_plane(
 
 // dims: viewpoints (x dim) x faces (y dim)
 // many origins, each mapped to an end point
-__global__ void ray_int_plane_many_2d(
+__global__ void ray_int_tri_many_2d(
     bool *result, // flattened 2d
     vec3 *int_points, // flattened 2d
     const vec3 *starts,  // n_vp (vec3)
@@ -265,7 +265,7 @@ __global__ void ray_int_plane_many_2d(
 
 // dims: viewpoints (x dim) x faces (y dim) x 3 (tri dim)
 // many origins, each mapped to an end point
-__global__ void ray_int_plane_many(
+__global__ void ray_int_tri_many(
     bool *result, // flattened 3d
     vec3 *int_points, // flattened 3d
     const vec3 *starts,  // n_ray (vec3)
@@ -339,6 +339,57 @@ __global__ void ray_int_plane_many(
     pinhole_camera(result[res_idx], origin, viewdir, end);
     // result[res_idx] = false;
     return;
+}
+
+__global__ void ray_int_plane(
+    bool *result, // n_rays
+    vec3 *int_points, // n_rays
+    vec3 *ray_starts,  // n_rays (vec3)
+    vec3 *ray_ends,   // n_rays (vec3)
+    vec3 plane_point,
+    vec3 plane_normal,
+    size_t n_rays
+    ) {
+    // get ray index 
+    size_t ray_idx = blockIdx.x * blockDim.x + threadIdx.x; // n_rays
+
+    // check if out of bounds on rays
+    if (ray_idx > n_rays - 1) { return; }
+
+    // get ray vecs to test
+    vec3 origin_to_point = plane_point - ray_starts[ray_idx];
+    vec3 end_to_point = plane_point - ray_ends[ray_idx];
+
+    // get projections onto plane normal
+    float origin_proj = origin_to_point.dot(plane_normal);
+    float end_proj = end_to_point.dot(plane_normal);
+    float abs_origin_proj = fabsf(origin_proj);
+    float abs_end_proj = fabsf(end_proj);
+
+    // test if ray intersects plane (end and origin are on opposite sides of plane)
+    if (abs_origin_proj < 1e-6f || abs_end_proj < 1e-6f) {
+        result[ray_idx] = false;
+        int_points[ray_idx] = vec3(
+            INFINITY,
+            INFINITY,
+            INFINITY
+        );
+        return;
+    }
+
+    // must be opposite signs if they are on opposite sides of the plane
+    if (origin_proj * end_proj > 0) {
+        result[ray_idx] = false;
+        int_points[ray_idx] = vec3(
+            INFINITY,
+            INFINITY,
+            INFINITY
+        );
+        return;
+    }
+    float fac = abs_origin_proj / (abs_origin_proj + abs_end_proj);
+    int_points[ray_idx] = ray_starts[ray_idx] * (1 - fac) + ray_ends[ray_idx] * fac;
+    result[ray_idx] = true;
 }
 
 __global__ void collision_odd(bool* vp_collision, const bool* ray_tri_collision, size_t n_vp, size_t n_tri) {
@@ -472,7 +523,7 @@ extern "C" void cuda_kernel_coverage(
 
     // 2D blocks because 3d blocks can account for the 3rd dim by themselves
     dim3 numBlocks(int((n_tri + threadsPerBlock.x - 1) / threadsPerBlock.x), (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
-    ray_int_plane<<<numBlocks, threadsPerBlock>>>(
+    ray_int_tri<<<numBlocks, threadsPerBlock>>>(
         d_intersections, 
         d_int_points, 
         vp.pose, 
@@ -531,6 +582,199 @@ extern "C" void cuda_kernel_coverage(
     delete[] intersection_arr;
     delete[] result_int_points;
 }
+
+extern "C" void cuda_kernel_ray_int_plane(
+    const std::vector<vec3>& ray_starts,
+    const std::vector<vec3>& ray_ends,
+    const vec3& plane_point,
+    const vec3& plane_normal,
+    bool* collisions,
+    vec3* int_points
+) {
+    size_t n_rays = ray_starts.size();
+
+    vec3 *starts = new vec3[n_rays];
+    vec3 *ends = new vec3[n_rays];
+    bool *result_arr = new bool[n_rays];
+    vec3 *result_int_points = new vec3[n_rays];
+
+    // thread, block size
+    size_t thread_x = 1024;
+
+    // put viewpoints into array
+    for (size_t i = 0; i < n_rays; i++) {
+        starts[i] = ray_starts[i];
+        ends[i] = ray_ends[i];
+    }
+
+    vec3 *d_starts;
+    vec3 *d_ends;
+    bool *d_result;
+    vec3 *d_int_points;
+
+    cudaMalloc(&d_starts, n_rays * sizeof(vec3));
+    cudaMalloc(&d_ends, n_rays * sizeof(vec3));
+    cudaMalloc(&d_result, n_rays * sizeof(bool));
+    cudaMalloc(&d_int_points, n_rays * sizeof(vec3));
+
+    cudaMemcpy(d_starts, starts, n_rays * sizeof(vec3), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ends, ends, n_rays * sizeof(vec3), cudaMemcpyHostToDevice);
+
+    // set up thread and block size
+    dim3 threadsPerBlock(thread_x, 1, 1);
+    dim3 numBlocks((n_rays + threadsPerBlock.x - 1) / threadsPerBlock.x, 1, 1);
+
+    // run kernel
+    ray_int_plane<<<numBlocks, threadsPerBlock>>>(
+        d_result,
+        d_int_points,
+        d_starts,
+        d_ends,
+        plane_point,
+        plane_normal,
+        n_rays
+    );
+
+    // copy results back to host
+    cudaMemcpy(result_arr, d_result, n_rays * sizeof(bool), cudaMemcpyDeviceToHost);
+    cudaMemcpy(result_int_points, d_int_points, n_rays * sizeof(vec3), cudaMemcpyDeviceToHost);
+
+    // free gpu memory
+    cudaFree(d_starts);
+    cudaFree(d_ends);
+    cudaFree(d_result);
+    cudaFree(d_int_points);
+
+    // copy memory into output
+    for (size_t i = 0; i < n_rays; i++) {
+        collisions[i] = result_arr[i];
+        int_points[i] = result_int_points[i];
+    }
+
+    delete[] starts;
+    delete[] ends;
+    delete[] result_arr;
+    delete[] result_int_points;
+}
+
+extern "C" void cuda_kernel_many_ray(
+    const std::vector<vec3>& start_ray,
+    const std::vector<vec3>& end_ray,
+    const std::vector<Triangle*>& faces,
+    bool* collisions,
+    vec3** int_points
+    ) {
+
+    // put viewpoints into arrays
+    size_t n_tri = faces.size();
+    size_t n_ray = start_ray.size();
+
+    vec3 *starts = new vec3[n_ray];
+    vec3 *ends = new vec3[n_ray];
+    Triangle *tri = new Triangle[n_tri];
+    bool *result_arr = new bool[n_ray];
+    bool *intersection_arr = new bool[n_ray * n_tri];
+    vec3 *result_int_points = new vec3[n_ray * n_tri];
+
+    // thread, block size
+    size_t thread_x = 32;
+    size_t thread_y = 32;
+    size_t thread_z = 1;
+
+    // put faces into array
+    for (size_t i = 0; i < n_tri; i++) {
+        tri[i] = *faces[i];
+    }
+
+    // put viewpoints into array
+    for (size_t ray_idx = 0; ray_idx < n_ray; ray_idx++) {
+        starts[ray_idx] = start_ray[ray_idx];
+        ends[ray_idx] = end_ray[ray_idx];
+    }
+
+    // allocate gpu memory
+    vec3 *d_starts;
+    vec3 *d_ends;
+    Triangle *d_tri;
+
+    bool *d_intersections; // collisions per ray per triangle
+    bool *d_result; // collisions per triangle
+    vec3 *d_int_points; // intersection points
+
+    cudaMalloc(&d_starts, n_ray * sizeof(vec3));
+    cudaMalloc(&d_ends, n_ray * sizeof(vec3));
+    cudaMalloc(&d_tri, n_tri * sizeof(Triangle));
+    cudaMalloc(&d_intersections, n_ray * n_tri * sizeof(bool));
+    cudaMalloc(&d_result, n_ray * sizeof(bool));
+    cudaMalloc(&d_int_points, n_ray * n_tri * sizeof(vec3));
+
+    // copy data to gpu
+    cudaMemcpy(d_starts, starts, n_ray * sizeof(vec3), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ends, ends, n_ray * sizeof(vec3), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_tri, tri, n_tri * sizeof(Triangle), cudaMemcpyHostToDevice);
+
+    // set thread and block size
+    dim3 threadsPerBlock(thread_x, thread_y, thread_z);
+
+    // 2D blocks because 3d blocks can account for the 3rd dim by themselves
+    dim3 numBlocks(int((n_ray + threadsPerBlock.x - 1) / threadsPerBlock.x), (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
+    ray_int_tri_many_2d<<<numBlocks, threadsPerBlock>>>(
+        d_intersections, 
+        d_int_points,
+        d_starts, 
+        d_ends, 
+        n_ray,
+        d_tri, 
+        n_tri
+    );
+
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(intersection_arr, d_intersections, n_ray * n_tri * sizeof(bool), cudaMemcpyDeviceToHost);
+
+    // same as above but without the 3rd dimension
+    threadsPerBlock.x = 1024;
+    threadsPerBlock.y = 1;
+    threadsPerBlock.z = 1;
+
+    // reusing numBlocks
+    numBlocks.x = (n_tri + threadsPerBlock.x - 1) / threadsPerBlock.x;
+    numBlocks.y = 1; // numBlocks.z is already 1
+    collision_or<<<numBlocks, threadsPerBlock>>>(d_result, d_intersections, n_ray, n_tri);
+
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(result_arr, d_result, n_ray * sizeof(bool), cudaMemcpyDeviceToHost);
+    cudaMemcpy(result_int_points, d_int_points, n_ray * n_tri * sizeof(vec3), cudaMemcpyDeviceToHost);
+
+    cudaFree(d_starts);
+    cudaFree(d_ends);
+    cudaFree(d_tri);
+    cudaFree(d_result);
+    cudaFree(d_intersections);
+    cudaFree(d_int_points);
+
+    for (size_t vp_idx=0; vp_idx < n_ray; vp_idx++) {
+        collisions[vp_idx] = result_arr[vp_idx];
+    }
+
+    if (int_points != nullptr) {
+        for (size_t ray_idx = 0; ray_idx < n_ray; ray_idx++){
+            for (size_t tri_idx = 0; tri_idx < n_tri; tri_idx++) {
+                size_t res_idx = tri_idx * n_ray + ray_idx;
+                int_points[ray_idx][tri_idx] = result_int_points[res_idx];
+            }
+        }
+    }
+
+    delete[] starts;
+    delete[] ends;
+    delete[] tri;
+    delete[] result_arr;
+    delete[] intersection_arr;
+    delete[] result_int_points;
+}
+
 
 extern "C" void cuda_kernel_many(
     const std::vector<Viewpoint>& viewpoints,
@@ -609,7 +853,7 @@ extern "C" void cuda_kernel_many(
 
     // 2D blocks because 3d blocks can account for the 3rd dim by themselves
     dim3 numBlocks(int((n_vp + threadsPerBlock.x - 1) / threadsPerBlock.x), (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
-    ray_int_plane_many<<<numBlocks, threadsPerBlock>>>(
+    ray_int_tri_many<<<numBlocks, threadsPerBlock>>>(
         d_intersections, 
         d_int_points, 
         d_starts, 
@@ -745,7 +989,7 @@ extern "C" void cuda_kernel_collision_points(
 
     // 2D blocks because 3d blocks can account for the 3rd dim by themselves
     dim3 numBlocks(int((n_vp + threadsPerBlock.x - 1) / threadsPerBlock.x), (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
-    ray_int_plane_many_2d<<<numBlocks, threadsPerBlock>>>(
+    ray_int_tri_many_2d<<<numBlocks, threadsPerBlock>>>(
         d_intersections, 
         d_int_points, 
         d_starts, 

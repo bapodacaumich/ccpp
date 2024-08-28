@@ -5,6 +5,7 @@
 #include "node3d_struct.hpp"
 #include "obs.hpp"
 #include "plane_struct.hpp"
+#include "triangle_struct.hpp"
 #include "utils.hpp"
 #include "vec3_struct.hpp"
 
@@ -21,24 +22,22 @@ class RRTZ {
             std::vector<OBS> obs,
             Limit limits,
             size_t max_nodes,
-            size_t min_iter=0,
-            size_t max_iter=0,
             bool debug=false
-            );
+        );
 
         bool run(std::vector<vec3>& path);
+        float getBestCost();
 
     private:
         // private members
         vec3 start;
         vec3 goal;
         size_t max_nodes;
-        size_t min_iter;
-        size_t max_iter;
         Limit limits;
         std::vector<Node3D> tree_nodes;
         std::vector<OBS> obs;
         std::vector<float> costs;
+        std::vector<Triangle*> triangles;
 
         // debug
         bool debug;

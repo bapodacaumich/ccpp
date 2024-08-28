@@ -11,19 +11,27 @@ def obs_trisurf(meshes, coverage=None, show=True, surface=True, wireframe=True, 
     fig = plt.figure()
     ax = Axes3D(fig, auto_add_to_figure=False)
     fig.add_axes(ax)
+    coverage_idx = 0
+    num_faces = np.sum(np.array([len(mesh) for mesh in meshes]))
+    assert num_faces == len(coverage), 'coverage length does not match number of faces'
     for mesh in meshes:
         for face in mesh:
             x = [x[0] for x in face]
             y = [x[1] for x in face]
             z = [x[2] for x in face]
             verts = [list(zip(x,y,z))]
-            pc = Poly3DCollection(verts, fc='tab:blue')
+
+            if coverage[coverage_idx] == 1:
+                pc = Poly3DCollection(verts, fc='tab:blue')
+            else:
+                pc = Poly3DCollection(verts, fc='red')
             pc.set_alpha(0.2)
             if surface: ax.add_collection3d(pc)
             x.append(x[0])
             y.append(y[0])
             z.append(z[0])
             if wireframe: ax.plot(x,y,z,lw=0.1)
+            coverage_idx += 1
 
     # ax.set_aspect('equal')
     if show == True: plt.show()
@@ -65,6 +73,7 @@ def plot_path_direct(file, ax=None):
     #             filepath=os.path.join(dir, file)
     # print('found file: ', filepath)
     viewpoints = np.loadtxt(filepath, delimiter=',')
+    print('Num Viewpoints: ', viewpoints.shape[0])
     if ax is None: ax = plt.figure(figsize=(8, 8)).add_subplot(projection='3d')
     # ax.plot(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], 'k-')
     ax.scatter(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], c='k', alpha=1.0)
