@@ -19,7 +19,8 @@
 
 bool ray_int_plane(Node3D node, Plane plane, float eps, vec3& intPoint) {
     vec3 origin_to_point = plane.point - node.origin;
-    vec3 end_to_point = node.end - node.origin;
+    // vec3 end_to_point = node.end - node.origin;
+    vec3 end_to_point = node.end - plane.point;
     float origin_dot = origin_to_point.dot(plane.normal);
     float end_dot = end_to_point.dot(plane.normal);
     float abs_origin_dot = fabsf(origin_dot);
@@ -123,7 +124,11 @@ float heading_change(Node3D node, vec3 vector) {
     return acosf(node.vector.dot(vector) / (node.vector.norm() * vector.norm() + 1e-9f));
 }
 
-bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data, int rowlen){
+float heading_change(vec3 v0, vec3 v1) {
+    return acosf(v0.dot(v1) / (v0.norm() * v1.norm() + 1e-9f));
+}
+
+bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data, int rowlen, char delimiter){
     /*
     load a csv file into a vector of vectors
     args:
@@ -144,7 +149,7 @@ bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data,
         std::stringstream ss(line);
         std::string cell;
         int num_cells = 0;
-        while (std::getline(ss, cell, ' ') && num_cells < rowlen)
+        while (std::getline(ss, cell, delimiter) && num_cells < rowlen)
         {
             try {
                 row.push_back(std::stof(cell)); // Convert string to float and add to row
@@ -225,6 +230,57 @@ void convertFlatToTriangle(const std::vector<std::vector<float>>& flatData, std:
             vec3(flatData[i][6], flatData[i][7],  flatData[i][8]), // v2
             vec3(flatData[i][9], flatData[i][10], flatData[i][11]) // normal
         ));
+    }
+}
+
+void loadCubeOBS(std::vector<OBS>& obsVec) {
+    /*
+    * instantiate station into obstacle objects
+    * @param obsVec: std::vector<OBS>, output data
+    */
+    // load in cube data
+    std::vector<std::vector<std::vector<float>>> cubeData;
+    loadCube(cubeData); // -1 to 1 cube
+
+    // load cube data into triangles
+    std::vector<Triangle> triCubeFaces;
+    vecToTri(cubeData, triCubeFaces);
+
+    // load cube data into a single obstacle
+    obsVec.push_back(OBS(triCubeFaces));
+}
+
+void loadConvexStationOBS(std::vector<OBS>& obsVec) {
+    /*
+    * instantiate station into obstacle objects
+    * @param obsVec: std::vector<OBS>, output data
+    */
+    size_t num_obstacles = 15;
+    std::string model_dir = "../data/model_convex/";
+
+    for (size_t i=0; i < num_obstacles; ++i) {
+        // load triangle mesh data
+        std::string filename = model_dir + std::to_string(i) + "_faces_normals.csv"; // 9 length vector
+        std::vector<std::vector<float>> tri_data;
+
+        // each row is a triangle (3 points = 9 numbers) and normals (3 numbers)
+        loadCSV(filename, tri_data, 12);
+
+        // convert flat data to triangle objects
+        std::vector<Triangle> tris;
+        convertFlatToTriangle(tri_data, tris);
+
+        vec3 offset = vec3(2.529f, 4.821, 2.591);
+
+        for (size_t j = 0; j < tris.size(); j++) {
+            tris[j].n = tris[j].n / tris[j].n.norm();
+            tris[j].a += offset;
+            tris[j].b += offset;
+            tris[j].c += offset;
+        }
+
+        OBS obs = OBS(tris);
+        obsVec.push_back(obs);
     }
 }
 

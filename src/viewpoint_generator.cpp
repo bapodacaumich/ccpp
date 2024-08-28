@@ -152,6 +152,11 @@ std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints() {
     return this->coverage_viewpoints;
 }
 
+void ViewpointGenerator::getFilteredCoverage(std::vector<bool>& filtered_coverage) {
+    // get filtered coverage map
+    filtered_coverage = this->filtered_coverage;
+}
+
 void ViewpointGenerator::greedy() {
     /*
     * greedy algorithm to select viewpoints from unfiltered_viewpoints

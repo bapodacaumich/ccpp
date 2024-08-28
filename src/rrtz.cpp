@@ -1,3 +1,4 @@
+#include "cuda_kernels.h"
 #include "limit_struct.hpp"
 #include "node3d_struct.hpp"
 #include "obs.hpp"
@@ -15,8 +16,6 @@ RRTZ::RRTZ() {
     this->start = vec3();
     this->goal = vec3();
     this->max_nodes = 0;
-    this->min_iter = 0;
-    this->max_iter = 0;
     this->tree_nodes = std::vector<Node3D>();
     this->obs = std::vector<OBS>();
 }
@@ -27,17 +26,14 @@ RRTZ::RRTZ(
     std::vector<OBS> obs,
     Limit limits,
     size_t max_nodes,
-    size_t min_iter,
-    size_t max_iter,
     bool debug
     ) {
+    srand(time(NULL));
 
     // save problem config
     this->start = start;
     this->goal = goal;
     this->max_nodes = max_nodes;
-    this->min_iter = min_iter; // not using TODO: implement convergence criteria
-    this->max_iter = max_iter; // not using 
 
     // initialize tree
     this->tree_nodes = std::vector<Node3D>();
@@ -53,16 +49,28 @@ RRTZ::RRTZ(
 
     // pass in debug setting
     this->debug = debug;
+    if (this->debug) {
+        std::cout << "RRTZ initialized with start=" << start.toString() << " goal=" << goal.toString() << std::endl;
+        std::cout << "> debug mode enabled" << std::endl;
+    }
+
+    // get list of triangles for ray collision check
+    for (size_t obs_idx = 0; obs_idx < this->obs.size(); obs_idx++) {
+        for (size_t face_idx = 0; face_idx < this->obs[obs_idx].faces.size(); face_idx++) {
+            this->triangles.push_back(&(this->obs[obs_idx].faces[face_idx]));
+        }
+    }
 }
 
 bool RRTZ::run(std::vector<vec3>& path) {
     // initialize best solution
+    size_t num_failed_iterations = 0;
     while (!this->terminate()) {
         // random number between 0 and 1
         float r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
         float cost = std::numeric_limits<float>::infinity();
 
-        if (this->debug) {std::cout << "\rIteration=" << this->tree_nodes.size();}
+        if (this->debug) { std::cout << "\rIteration=" << this->tree_nodes.size() << " | Failed Iterations=" << num_failed_iterations << std::flush; }
 
         if (r < 0.5) { 
             // extend to goal
@@ -71,17 +79,28 @@ bool RRTZ::run(std::vector<vec3>& path) {
                 // success to goal --> save index of this leaf node
                 if (cost < this->best_cost) {
                     this->best_cost = cost;
-                    if (this->debug) {std::cout << " Improved Cost=" << this->best_cost << std::endl;}
                     this->best_idx = this->tree_nodes.size() - 1;
+                    if (this->debug) {
+                        std::vector<vec3> best_path;
+                        this->reconstruct_path(this->best_idx, best_path);
+                        std::cout << "\n Found new best path:" << std::endl;
+                        for (size_t i = 0; i < best_path.size(); i++) {
+                            std::cout << best_path[i].toString() << std::endl;
+                        }
+                        std::cout << " Improved Cost=" << this->best_cost << std::endl;
+                        std::cout << std::endl;
+                    }
                 }
-            }
+            } else { num_failed_iterations++; }
         } else {
             // extend to random plane
             bool success = false;
-            while (!success) {
+            for (size_t i = 0; i < 5; i++){
                 Plane plane = this->sample_plane();
                 success = this->extend(plane, cost);
+                if (success) { break; }
             }
+            if (!success) { num_failed_iterations++; }
         }
     }
 
@@ -91,6 +110,10 @@ bool RRTZ::run(std::vector<vec3>& path) {
         return true;
     }
     return false;
+}
+
+float RRTZ::getBestCost() {
+    return this->best_cost;
 }
 
 bool RRTZ::terminate() {
@@ -106,6 +129,7 @@ void RRTZ::reconstruct_path(size_t parent_idx, std::vector<vec3>& path) {
         parent_idx = this->tree_nodes[parent_idx].parent_idx;
     }
 }
+
 Plane RRTZ::sample_plane() {
     vec3 pose = vec3(
         static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * (this->limits.xmax - this->limits.xmin) + this->limits.xmin,
@@ -113,19 +137,21 @@ Plane RRTZ::sample_plane() {
         static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * (this->limits.zmax - this->limits.zmin) + this->limits.zmin
     );
     vec3 normal = vec3(
-        static_cast<float>(rand()) / static_cast<float>(RAND_MAX),
-        static_cast<float>(rand()) / static_cast<float>(RAND_MAX),
-        static_cast<float>(rand()) / static_cast<float>(RAND_MAX)
+        static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f,
+        static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f,
+        static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f
     );
+    std::cout << "\nSampled plane: point= " << pose.toString() << " | normal= " << normal.toString() << std::endl;
     return Plane(normal, pose);
 }
 
 Plane RRTZ::sample_plane(vec3 point) {
     vec3 normal = vec3(
-        static_cast<float>(rand()) / static_cast<float>(RAND_MAX),
-        static_cast<float>(rand()) / static_cast<float>(RAND_MAX),
-        static_cast<float>(rand()) / static_cast<float>(RAND_MAX)
+        static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f,
+        static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f,
+        static_cast<float>(rand()) / static_cast<float>(RAND_MAX) * 2.0f - 1.0f
     );
+    std::cout << "\nSampled normal: point= " << point.toString() << " | normal= " << normal.toString() << std::endl;
     return Plane(normal, point);
 }
 
@@ -150,16 +176,37 @@ bool RRTZ::extend(Plane p, float& cost) {
     float best_cost = std::numeric_limits<float>::infinity();
 
     if (this->get_near_nodes(p, near_nodes, intersection_points)) {
+        // rays to send to gpu
+        std::vector<vec3> start_ray = std::vector<vec3>();
+        std::vector<vec3> end_ray = std::vector<vec3>();
         for (size_t i = 0; i < near_nodes.size(); i++) {
-            if (!this->collision(intersection_points[i], p.point)) {
+            // get rays to send to gpu
+            start_ray.push_back(intersection_points[i]);
+            end_ray.push_back(p.point);
+
+            // CPU code:
+            // if (!this->collision(intersection_points[i], p.point)) {
+            //     float node_cost = (*near_nodes[i]).cost + heading_change(*near_nodes[i], p.point-intersection_points[i]);
+            //     if (node_cost < best_cost) {
+            //         best_cost = cost;
+            //         best_node_ptr = near_nodes[i];
+            //         best_int_point_ptr = &intersection_points[i];
+            //     }
+            // }
+        }
+        bool* collisions = new bool[near_nodes.size()];
+        cuda_kernel_many_ray(start_ray, end_ray, this->triangles, collisions, nullptr);
+        for (size_t i = 0; i < near_nodes.size(); i++) {
+            if (!collisions[i]) {
                 float node_cost = (*near_nodes[i]).cost + heading_change(*near_nodes[i], p.point-intersection_points[i]);
                 if (node_cost < best_cost) {
-                    best_cost = cost;
+                    best_cost = node_cost;
                     best_node_ptr = near_nodes[i];
                     best_int_point_ptr = &intersection_points[i];
                 }
             }
         }
+        delete[] collisions;
     }
 
     // if a collisionfree candidate node was found, add it to the tree
@@ -179,13 +226,44 @@ void RRTZ::print_node(Node3D node) {
 }
 
 bool RRTZ::get_near_nodes(Plane plane, std::vector<Node3D*>& near_nodes, std::vector<vec3>& int_points) {
+    // GPU code:
+    std::vector<vec3> start_ray = std::vector<vec3>();
+    std::vector<vec3> end_ray = std::vector<vec3>();
     for (size_t i = 0; i < this->tree_nodes.size(); i++) {
-        vec3 intPoint;
-        if (ray_int_plane(this->tree_nodes[i], plane, 1e-9f, intPoint)) {
+        start_ray.push_back(this->tree_nodes[i].origin);
+        end_ray.push_back(this->tree_nodes[i].end);
+    }
+
+    bool* collisions = new bool[this->tree_nodes.size()];
+    vec3* int_point_arr = new vec3[this->tree_nodes.size()];
+    cuda_kernel_ray_int_plane(
+        start_ray,
+        end_ray,
+        plane.point,
+        plane.normal,
+        collisions,
+        int_point_arr
+    );
+
+    // std::cout << "Plane check: point=" << plane.point.toString() << " | normal=" << plane.normal.toString() << std::endl; 
+    for (size_t i = 0; i < this->tree_nodes.size(); i++) {
+        // std::cout << "RAY " << i << " collision: " << collisions[i];
+        // std::cout << " | start_ray=" << start_ray[i].toString() << " | end_ray=" << end_ray[i].toString();
+        // std::cout << " | int_point=" << int_point_arr[i].toString() << std::endl;
+        if (collisions[i]) {
             near_nodes.push_back(&(this->tree_nodes[i]));
-            int_points.push_back(intPoint);
+            int_points.push_back(int_point_arr[i]);
         }
     }
+
+    // CPU code:
+    // for (size_t i = 0; i < this->tree_nodes.size(); i++) {
+    //     vec3 intPoint;
+    //     if (ray_int_plane(this->tree_nodes[i], plane, 1e-9f, intPoint)) {
+    //         near_nodes.push_back(&(this->tree_nodes[i]));
+    //         int_points.push_back(intPoint);
+    //     }
+    // }
     return !near_nodes.empty();
 }
 
@@ -202,10 +280,22 @@ bool RRTZ::check_bounds(vec3 point) {
 }
 
 bool RRTZ::collision(vec3 origin, vec3 end) {
-    for (size_t i = 0; i < this->obs.size(); i++) {
-        if (this->obs[i].collision(origin, end)) {
-            return true;
-        }
-    }
-    return false;
+    // set up rays to send to gpu
+    std::vector<vec3> start_ray = std::vector<vec3>();
+    start_ray.push_back(origin);
+    std::vector<vec3> end_ray = std::vector<vec3>();
+    end_ray.push_back(end);
+
+    // get collisions from gpu
+    bool ret;
+    bool* collisions = &ret;
+    cuda_kernel_many_ray(start_ray, end_ray, this->triangles, collisions, nullptr);
+
+    // cpu code:
+    // for (size_t i = 0; i < this->obs.size(); i++) {
+    //     if (this->obs[i].collision(origin, end)) {
+    //         return true;
+    //     }
+    // }
+    return ret;
 }
