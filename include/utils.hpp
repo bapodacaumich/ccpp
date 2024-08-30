@@ -20,7 +20,7 @@ bool ray_int_triangle(Node3D node, Triangle tri, vec3& intPoint= * TEMP, float e
 float heading_change(Node3D node, Node3D next_node);
 float heading_change(Node3D node, vec3 vector);
 float heading_change(vec3 v0, vec3 v1);
-bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data, int rowlen, char delimiter=' ');
+bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data, int rowlen, char delimiter=' ', bool raw=false);
 void saveCSV(const std::string& filename, const std::vector<std::vector<float>>& data);
 void loadCube(std::vector<std::vector<std::vector<float>>>& data, float xs=-1, float xf=1);
 void convertFlatToTriangle(const std::vector<std::vector<float>>& flatData, std::vector<Triangle>& tris);

@@ -5,10 +5,17 @@
 #include "utils.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <stddef.h>
 #include <vector>
 
+
+CostMatrix::CostMatrix() {
+    this->rrtz_iterations = 2000;
+}
 
 CostMatrix::CostMatrix(size_t rrtz_iterations) {
     this->rrtz_iterations = rrtz_iterations;
@@ -22,8 +29,9 @@ void CostMatrix::generateCostMatrix() {
     for (size_t i = 0; i < this->n_vp; i++) {
         for (size_t j = 0; j < this->n_vp; j++) {
             for (size_t k = 0; k < this->n_vp; k++) {
-                if (i != j && j != k && i != k) {
+                if (i != j && j != k && i != k && j != 0 && k != 0) {
                     // if any of the viewpoints are the same, leave cost at infinity
+                    // if j or k are the start viewpoint, leave cost at infinity
                     // otherwise, calculate the cost as the sum of the path lengths
                     if (this->simple_cost_matrix[i][j] != INFINITY && this->simple_cost_matrix[j][k] != INFINITY) {
                         vec3 last_dir = 
@@ -33,7 +41,7 @@ void CostMatrix::generateCostMatrix() {
                             this->path_matrix[j][k].at(1) - 
                             this->path_matrix[j][k].at(0);
                         this->cost_matrix[i][j][k] = 
-                            this->simple_cost_matrix[i][j] + 
+                            // this->simple_cost_matrix[i][j] +
                             this->simple_cost_matrix[j][k] + 
                             heading_change(last_dir, next_dir);
                     }
@@ -54,14 +62,34 @@ void CostMatrix::generatePathMatrix() {
 
 
     // set wide limits
-    Limit limits = { -10.0f, 10.0f, -10.0f, 30.0f, -10.0f, 10.0f };
+    Limit limits = { -5.0f, 10.0f, -5.0f, 15.0f, -5.0f, 10.0f };
 
     // load obstacles
     std::vector<OBS> obsVec;
     loadConvexStationOBS(obsVec);
 
+
+    std::ostringstream message;
+    auto now = std::chrono::high_resolution_clock::now();
     for (size_t vp_idx0 = 0; vp_idx0 < this->n_vp; vp_idx0++) {
         for (size_t vp_idx1 = 0; vp_idx1 < this->n_vp; vp_idx1++) {
+            auto prev_now = now;
+            now = std::chrono::high_resolution_clock::now();
+            // Calculate the duration
+            std::chrono::duration<double> duration = now - prev_now;
+            double loop_period = duration.count();
+
+            // Output the duration in seconds
+            size_t leftinrow = this->n_vp - vp_idx1;
+            size_t leftincol = this->n_vp - vp_idx0;
+            size_t itemsleft = leftinrow + leftincol * leftincol / 2;
+            double seconds_remaining = loop_period * (itemsleft);
+            double minutes_remaining = seconds_remaining / 60.0;
+            seconds_remaining = std::fmod(seconds_remaining, 60.0);
+            message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
+            double progress = 1.0 - static_cast<double>(itemsleft) / static_cast<double>((this->n_vp + 1) * (this->n_vp + 1) / 2);
+            displayProgressBar(progress, 150, message);
+            message.str("");
             // if the viewpoints are the same, add empty path and infinite cost to matrix
             if (vp_idx0 == vp_idx1) { continue; }
 
@@ -74,32 +102,50 @@ void CostMatrix::generatePathMatrix() {
             } else {
                 // setup and run rrtz
                 std::vector<vec3> path;
-                vec3 start = viewpoints[vp_idx0];
-                vec3 goal = viewpoints[vp_idx1];
+                vec3 start = this->viewpoints[vp_idx0];
+                vec3 goal = this->viewpoints[vp_idx1];
                 RRTZ rrtz = RRTZ(start, goal, obsVec, limits, this->rrtz_iterations);
-                if (!rrtz.run(path)) {
+                if (rrtz.run(path)) {
                     // if rrtz runs, add path and path cost to matrix
                     this->path_matrix[vp_idx0][vp_idx1] = path;
                     this->simple_cost_matrix[vp_idx0][vp_idx1] = rrtz.getBestCost();
-                } else {
-                    // if rrtz fails, add empty path and infinite cost to matrix
-                    std::cout << "Failed to find path from " << this->viewpoints[vp_idx0].toString() << " to " << this->viewpoints[vp_idx1].toString() << std::endl;
+                // } else {
+                //     // if rrtz fails, add empty path and infinite cost to matrix
+                //     std::cout << "Failed to find path from " << this->viewpoints[vp_idx0].toString() << " to " << this->viewpoints[vp_idx1].toString() << std::endl;
                 }
             }
         }
     }
 }
 
-void CostMatrix::loadViewpoints(std::string filename) {
+void CostMatrix::loadViewpoints(std::string filename, vec3 start) {
     // load the viewpoints from a file
     std::vector<std::vector<float>> viewpoint_data;
-    loadCSV(filename, viewpoint_data, 3, ',');
-    this->n_vp = viewpoint_data.size();
+    loadCSV(filename, viewpoint_data, 6, ',');
+    this->n_vp = viewpoint_data.size() + 1;
 
     this->viewpoints.clear();
+    this->viewpoint_dirs.clear();
     for (size_t i = 0; i < viewpoint_data.size(); i++) {
         vec3 vp = vec3(viewpoint_data[i][0], viewpoint_data[i][1], viewpoint_data[i][2]);
+        vec3 dir = vec3(viewpoint_data[i][3], viewpoint_data[i][4], viewpoint_data[i][5]);
         this->viewpoints.push_back(vp);
+        this->viewpoint_dirs.push_back(dir);
+    }
+}
+
+void CostMatrix::loadSimpleCostMatrix(std::string filename) {
+    // load the simple cost matrix from a file
+    std::vector<std::vector<float>> simple_cost_matrix_data;
+    loadCSV(filename, simple_cost_matrix_data, 3, ',');
+    this->simple_cost_matrix.clear();
+    this->simple_cost_matrix = std::vector<std::vector<float>>(this->n_vp, std::vector<float>(this->n_vp, INFINITY));
+
+    for (size_t i = 0; i < simple_cost_matrix_data.size(); i++) {
+        size_t idx0 = simple_cost_matrix_data[i][0];
+        size_t idx1 = simple_cost_matrix_data[i][1];
+        float cost = simple_cost_matrix_data[i][2];
+        this->simple_cost_matrix[idx0][idx1] = cost;
     }
 }
 
@@ -115,8 +161,24 @@ void CostMatrix::saveSimpleCostMatrix(std::string filename) {
             simple_cost_matrix_data.push_back(row);
         }
     }
+    saveCSV(filename, simple_cost_matrix_data);
 }
 
+void CostMatrix::loadCostMatrix(std::string filename) {
+    // load cost matrix from file
+    std::vector<std::vector<float>> cost_matrix_data;
+    loadCSV(filename, cost_matrix_data, 4, ',');
+    this->cost_matrix.clear();
+    this->cost_matrix = std::vector<std::vector<std::vector<float>>>(this->n_vp, std::vector<std::vector<float>>(this->n_vp, std::vector<float>(this->n_vp, INFINITY)));
+
+    for (size_t i = 0; i < cost_matrix_data.size(); i++) {
+        size_t idx0 = cost_matrix_data[i][0];
+        size_t idx1 = cost_matrix_data[i][1];
+        size_t idx2 = cost_matrix_data[i][2];
+        float cost = cost_matrix_data[i][3];
+        cost_matrix[idx0][idx1][idx2] = cost;
+    }
+}
 void CostMatrix::saveCostMatrix(std::string filename) {
     // save the cost matrix to a file
     std::vector<std::vector<float>> cost_matrix_data; // flattened cost matrix
@@ -132,8 +194,30 @@ void CostMatrix::saveCostMatrix(std::string filename) {
             }
         }
     }
+    saveCSV(filename, cost_matrix_data);
 }
 
+void CostMatrix::loadPathMatrix(std::string filename) {
+    // load path matrix from file
+    std::vector<std::vector<float>> path_matrix_data;
+    loadCSV(filename, path_matrix_data, 3, ',', true); // raw so number of columns is not checked
+    this->path_matrix.clear();
+    this->path_matrix = std::vector<std::vector<std::vector<vec3>>>(this->n_vp, std::vector<std::vector<vec3>>(this->n_vp));
+
+    for (size_t i = 0; i < path_matrix_data.size(); i++) {
+        size_t idx0 = path_matrix_data[i][0];
+        size_t idx1 = path_matrix_data[i][1];
+
+        if ( (path_matrix_data[i].size()-2) % 3 != 0) {
+            std::cout << idx0 << " " << idx1 << (path_matrix_data[i].size()-2) % 3 << std::endl;
+        }
+
+        for (size_t j = 2; j < path_matrix_data[i].size(); j+=3) {
+            vec3 point = vec3(path_matrix_data[i][j], path_matrix_data[i][j+1], path_matrix_data[i][j+2]);
+            this->path_matrix[idx0][idx1].push_back(point);
+        }
+    }
+}
 void CostMatrix::savePathMatrix(std::string filename) {
     // save the path matrix to a file
     std::vector<std::vector<float>> path_matrix_data; // flattened path matrix
@@ -150,4 +234,38 @@ void CostMatrix::savePathMatrix(std::string filename) {
             }
         }
     }
+    saveCSV(filename, path_matrix_data);
+}
+
+float CostMatrix::getCost(size_t i, size_t j, size_t k) {
+    // get the cost from viewpoint i to j to k
+    if (i >= this->n_vp || j >= this->n_vp || k >= this->n_vp || // if indexing outside of the cost matrix
+        i == j || j == k || i == k || // will be infinity anyways
+        j == 0 || k == 0) { // if j or k are the start viewpoint
+        std::cout << "Invalid Coordinates: " << i << ", " << j << ", " << k << std::endl;
+        return INFINITY;
+    }
+
+    return this->cost_matrix[i][j][k];
+}
+
+float CostMatrix::getSimpleCost(size_t i, size_t j) {
+    // get the simple cost from viewpoint i to j
+    if (i >= this->n_vp || j >= this->n_vp ||
+        i == j || j == 0) { // if i and j point at the same viewpoint or j is the start viewpoint
+        std::cout << "Invalid Coordinates: " << i << ", " << j << std::endl;
+        return INFINITY;
+    }
+
+    return this->simple_cost_matrix[i][j];
+}
+
+std::vector<vec3> CostMatrix::getPath(size_t i, size_t j) {
+    // get the path from viewpoint i to j
+    if (i >= this->n_vp || j >= this->n_vp) {
+        std::cout << "Invalid Coordinates: " << i << ", " << j << std::endl;
+        return std::vector<vec3>();
+    }
+
+    return this->path_matrix[i][j];
 }

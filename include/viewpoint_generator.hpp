@@ -13,15 +13,16 @@ class ViewpointGenerator {
 
         // generate all viewopints when initialized
         ViewpointGenerator(); // default constructor -- no structure, no viewpoint generation
-        ViewpointGenerator( std::vector<OBS> structure);
+        // ViewpointGenerator( std::vector<OBS> structure);
+        // ViewpointGenerator(
+        //     std::vector<OBS> structure,
+        //     float vgd
+        // );
         ViewpointGenerator(
             std::vector<OBS> structure,
-            float vgd
-        );
-        ViewpointGenerator(
-            std::vector<OBS> structure,
-            float vgd,
-            ConeCamera cam
+            float vgd=2.0f,
+            ConeCamera cam=ConeCamera(),
+            float inc_angle_max=70.0f * M_PI / 180.0f
         );
 
         std::vector<Viewpoint> getCoverageViewpoints();
@@ -34,11 +35,13 @@ class ViewpointGenerator {
         // need to create map of coverage for each viewpoint
         void populateCoverage();
         void printIncidenceAngles();
-        void getFilteredCoverage(std::vector<bool>& filtered_coverage);
+        void getFilteredCoverage(std::vector<bool>& filtered_coverage_data);
+        void missedCoverage();
 
     private:
 
         float vgd;
+        float inc_angle_max;
         ConeCamera cam;
         size_t num_mesh_faces;
         std::vector<OBS> structure;
@@ -46,6 +49,7 @@ class ViewpointGenerator {
         std::vector<Viewpoint> unfiltered_viewpoints;
         std::vector<Viewpoint> coverage_viewpoints;
         std::vector<bool> filtered_coverage; // coverage of 'coverage_viewpoints'
+        std::vector<float> filtered_inc_angles; // best inc_angles of 'coverage_viewpoints'
         std::vector<VP_Coverage_Gain> vpcg_unfiltered;
         std::vector<VP_Coverage_Gain> vpcg_filtered;
 
@@ -59,6 +63,7 @@ class ViewpointGenerator {
         bool collision(vec3 pose, const std::vector<vec3*>& points);
 
         bool populateViewpoints();
+        void rotateViewpoint(const Viewpoint& vp, std::vector<Viewpoint>& rotated_viewpoints, float angle);
         void countMeshFaces();
         void sortUpdateMarginalGain();
 
@@ -66,7 +71,8 @@ class ViewpointGenerator {
 
 
         // use coverage map and update filtered_coverage
-        void updateCoverage();
+        void updateBestIncAngles();
+        void updateCoverage(float inc_angle_threshold);
         void setUpCoverageGain();
 };
 

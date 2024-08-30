@@ -6,7 +6,7 @@
 
 struct VP_Coverage_Gain {
     Viewpoint vp;
-    int gain;
+    float gain;
     std::vector<bool> coverage;
     size_t vp_map_idx;
     float inc_angle;

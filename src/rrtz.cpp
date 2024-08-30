@@ -28,7 +28,7 @@ RRTZ::RRTZ(
     size_t max_nodes,
     bool debug
     ) {
-    srand(time(NULL));
+    srand(0);
 
     // save problem config
     this->start = start;
@@ -95,22 +95,10 @@ bool RRTZ::run(std::vector<vec3>& path) {
         } else {
             // extend to random plane
             bool success = false;
-            // for (size_t i = 0; i < 5; i++){
-            size_t num_stuck = 0;
             while (!success) {
                 Plane plane = this->sample_plane();
-                // plane.point = this->start + vec3(-1.0f, 0.0f, 0.5f);
                 success = this->extend(plane, cost);
-                // if (success) { break; }
-                num_stuck++;
-                if (num_stuck > 100) {
-                    Plane plane = this->sample_plane();
-                    plane.point = this->start + vec3(-1.0f, 0.0f, 0.0f);
-                    cost = 999;
-                    this->extend(plane, cost);
-                }
             }
-            // if (!success) { num_failed_iterations++; }
         }
     }
 

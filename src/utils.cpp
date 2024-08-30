@@ -128,7 +128,7 @@ float heading_change(vec3 v0, vec3 v1) {
     return acosf(v0.dot(v1) / (v0.norm() * v1.norm() + 1e-9f));
 }
 
-bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data, int rowlen, char delimiter){
+bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data, int rowlen, char delimiter, bool raw){
     /*
     load a csv file into a vector of vectors
     args:
@@ -160,7 +160,10 @@ bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data,
                 std::cerr << "Number out of range: " << cell << std::endl;
                 return false;
             }
-            ++num_cells;
+            if (!raw) {
+                ++num_cells;
+            }
+            // ++num_cells;
         }
         data.push_back(row);
     }

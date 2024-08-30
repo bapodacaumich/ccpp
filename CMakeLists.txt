@@ -72,12 +72,13 @@ set(SOURCES
     ${CMAKE_SOURCE_DIR}/src/obs.cpp
     ${CMAKE_SOURCE_DIR}/src/rrtz.cpp
     ${CMAKE_SOURCE_DIR}/src/station.cpp
+    ${CMAKE_SOURCE_DIR}/src/tsp.cpp
     ${CMAKE_SOURCE_DIR}/src/utils.cpp
     ${CMAKE_SOURCE_DIR}/src/viewpoint_generator.cpp
 )
 
-add_executable(station_example ${RRTZ_SOURCES} ${CMAKE_SOURCE_DIR}/examples/station_example.cpp)
-add_executable(cube_example ${RRTZ_SOURCES} ${CMAKE_SOURCE_DIR}/examples/cube_example.cpp)
+# add_executable(station_example ${RRTZ_SOURCES} ${CMAKE_SOURCE_DIR}/examples/station_example.cpp)
+# add_executable(cube_example ${RRTZ_SOURCES} ${CMAKE_SOURCE_DIR}/examples/cube_example.cpp)
 
 add_executable(run_ccpp ${SOURCES} ${CMAKE_SOURCE_DIR}/src/run_ccpp.cpp ${HEADER_FILES_HPP})
 

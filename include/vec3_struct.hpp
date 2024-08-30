@@ -79,6 +79,19 @@ class vec3 {
         CUDA_HOSTDEV inline float norm() const {
             return sqrtf(this->x * this->x + this->y * this->y + this->z * this->z);
         }
+        CUDA_HOSTDEV inline vec3 rotate(const float angle, const vec3& axis) const {
+            // rotate vector about axis by angle
+            float s = sinf(angle);
+            float c = cosf(angle);
+            // float d = this->dot(axis);
+            // vec3 cr = axis.cross(*this);
+            // return *this * c + cr * s + axis * d * (1.0f - c);
+            return vec3(
+                this->x * (c + (1.0f - c) * axis.x * axis.x) + this->y * ((1.0f - c) * axis.x * axis.y - s * axis.z) + this->z * ((1.0f - c) * axis.x * axis.z + s * axis.y),
+                this->x * ((1.0f - c) * axis.y * axis.x + s * axis.z) + this->y * (c + (1.0f - c) * axis.y * axis.y) + this->z * ((1.0f - c) * axis.y * axis.z - s * axis.x),
+                this->x * ((1.0f - c) * axis.z * axis.x - s * axis.y) + this->y * ((1.0f - c) * axis.z * axis.y + s * axis.x) + this->z * (c + (1.0f - c) * axis.z * axis.z)
+            );
+        }
 };
 
 #endif // VEC3_STRUCT_HPP
