@@ -22,7 +22,9 @@ class ViewpointGenerator {
             std::vector<OBS> structure,
             float vgd=2.0f,
             ConeCamera cam=ConeCamera(),
-            float inc_angle_max=80.0f * M_PI / 180.0f
+            float inc_angle_max=90.0f * M_PI / 180.0f,
+            float inc_improvement_minimum=60.0f * M_PI / 180.0f,
+            float inc_improvement_threshold=5.0f * M_PI / 180.0f
         );
 
         std::vector<Viewpoint> getCoverageViewpoints();
@@ -42,8 +44,11 @@ class ViewpointGenerator {
 
         float vgd;
         float inc_angle_max;
+        float inc_improvement_minimum;
+        float inc_improvement_threshold;
         ConeCamera cam;
         size_t num_mesh_faces;
+
         std::vector<OBS> structure;
         std::vector<Triangle*> all_faces;
         std::vector<Viewpoint> unfiltered_viewpoints;

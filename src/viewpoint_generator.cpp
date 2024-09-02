@@ -58,7 +58,9 @@ ViewpointGenerator::ViewpointGenerator(
     std::vector<OBS> structure,
     float vgd,
     ConeCamera cam,
-    float inc_angle_max
+    float inc_angle_max,
+    float inc_improvement_minimum,
+    float inc_improvement_threshold
     ) {
 
     // initialize members
@@ -66,6 +68,7 @@ ViewpointGenerator::ViewpointGenerator(
     this->vgd = vgd;
     this->cam = cam;
     this->inc_angle_max = inc_angle_max;
+    this->inc_improvement_threshold = inc_improvement_threshold;
     this->unfiltered_viewpoints = std::vector<Viewpoint>();
     this->coverage_viewpoints = std::vector<Viewpoint>();
     this->coverage_map = std::vector<std::vector<bool>>();
@@ -264,12 +267,23 @@ void ViewpointGenerator::sortUpdateMarginalGain() {
             !(this->filtered_coverage[face_idx]) // face is not covered yet (according to coverage function)
             && this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx] // viewpoint covers face
             && this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->inc_angle_max // viewpoint - face incidence angle is within threshold
-            && this->filtered_inc_angles[face_idx] > this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] // improve incidence angle with this viewpoint
+            && this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->filtered_inc_angles[face_idx] // improve incidence angle with this viewpoint
             ) { 
                 // std::cout << "Incidence Angle: " << this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] << std::endl;
                 // define gain function here
                 // 1 is added to avoid division by zero and normalize best incidence angle to gain = 1
-                gain += 1/(this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] + 1);
+                float inc_best = this->filtered_inc_angles[face_idx];
+                float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
+                float inc_improve = inc_best - inc_unfiltered;
+                float inc_improve_thresh = 0.0f;
+                if (inc_best < this->inc_improvement_minimum) {
+                    inc_improve_thresh = this->inc_improvement_threshold;
+                }
+
+                if (inc_improve > inc_improve_thresh) {
+                    gain += 1/(inc_improve + 1);
+                }
+                // gain += 1/(this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] + 1);
                 // gain++;
             }
         }
