@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
         vp_data.push_back(coverage_viewpoints[i].viewdir.z);
         viewpoint_data_save.push_back(vp_data);
     }
-    // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_vp_set.csv", viewpoint_data_save);
+    saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_vp_set.csv", viewpoint_data_save);
 
     // save bool vector of final coverage of mesh faces
     std::vector<bool> final_coverage;
@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
         coverage_data.push_back(final_coverage[i]);
         final_coverage_data.push_back(coverage_data);
     }
-    // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_coverage.csv", final_coverage_data);
+    saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_coverage.csv", final_coverage_data);
     std::cout << "NUM VIEWPOINTS: " << coverage_viewpoints.size() << std::endl;
 
     // std::cout << "\n-----------------Coverage Viewpoints-----------------\n";
