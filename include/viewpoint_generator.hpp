@@ -22,7 +22,7 @@ class ViewpointGenerator {
             std::vector<OBS> structure,
             float vgd=2.0f,
             ConeCamera cam=ConeCamera(),
-            float inc_angle_max=70.0f * M_PI / 180.0f
+            float inc_angle_max=80.0f * M_PI / 180.0f
         );
 
         std::vector<Viewpoint> getCoverageViewpoints();
