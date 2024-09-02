@@ -23,8 +23,8 @@ class ViewpointGenerator {
             float vgd=2.0f,
             ConeCamera cam=ConeCamera(),
             float inc_angle_max=90.0f * M_PI / 180.0f,
-            float inc_improvement_minimum=60.0f * M_PI / 180.0f,
-            float inc_improvement_threshold=5.0f * M_PI / 180.0f
+            float inc_improvement_minimum=70.0f * M_PI / 180.0f,
+            float inc_improvement_threshold=10.0f * M_PI / 180.0f
         );
 
         std::vector<Viewpoint> getCoverageViewpoints();
