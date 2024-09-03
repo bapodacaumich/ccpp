@@ -23,7 +23,7 @@ def visualize_station(show=False, coverage_file='coverage_2m_coverage.csv', show
     meshes = load_meshes()
     coverage = np.loadtxt(os.path.join(os.getcwd(), '..', 'data', 'coverage_viewpoint_sets', coverage_file)).flatten()
     print('Coverage: ', np.sum(coverage)/len(coverage) * 100, '%')
-    ax = obs_trisurf(meshes, coverage, show=False)
+    ax = obs_trisurf(meshes, coverage, show=False, alph=0.9)
     # ax = plot_path_direct('station_viewpoints_coverage.csv', ax=ax)
     # ax = obs_normals(ax, meshes, show=False)
 

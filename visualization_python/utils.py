@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-def obs_trisurf(meshes, coverage=None, show=True, surface=True, wireframe=True, lw=0.1):
+def obs_trisurf(meshes, coverage=None, show=True, surface=True, wireframe=True, lw=0.1, alph=0.2):
     """
     plots a list of OBS objects by face
     """
@@ -13,7 +13,10 @@ def obs_trisurf(meshes, coverage=None, show=True, surface=True, wireframe=True, 
     fig.add_axes(ax)
     coverage_idx = 0
     num_faces = np.sum(np.array([len(mesh) for mesh in meshes]))
-    assert num_faces == len(coverage), 'coverage length does not match number of faces'
+    n_coverage = len(coverage) if coverage is not None else 0
+    highlight_faces = [756,1032] # for debugging purposes
+    highlight_faces = []
+    assert num_faces == n_coverage, f'coverage length {n_coverage} does not match number of faces {num_faces}'
     for mesh in meshes:
         for face in mesh:
             x = [x[0] for x in face]
@@ -21,16 +24,24 @@ def obs_trisurf(meshes, coverage=None, show=True, surface=True, wireframe=True, 
             z = [x[2] for x in face]
             verts = [list(zip(x,y,z))]
 
-            if coverage[coverage_idx] == 1:
-                pc = Poly3DCollection(verts, fc='tab:blue')
+            if coverage is not None:
+                if coverage[coverage_idx] == 1:
+                    if coverage_idx in highlight_faces:
+                        pc = Poly3DCollection(verts, fc='tab:purple', alpha=1.0)
+                    else:
+                        pc = Poly3DCollection(verts, fc='tab:blue', alpha=alph)
+                else:
+                    if coverage_idx in highlight_faces:
+                        pc = Poly3DCollection(verts, fc='tab:green', alpha=1.0)
+                    else:
+                        pc = Poly3DCollection(verts, fc='red', alpha=alph)
             else:
-                pc = Poly3DCollection(verts, fc='red')
-            pc.set_alpha(0.2)
+                pc = Poly3DCollection(verts, fc='tab:blue', alpha=alph)
             if surface: ax.add_collection3d(pc)
             x.append(x[0])
             y.append(y[0])
             z.append(z[0])
-            if wireframe: ax.plot(x,y,z,lw=0.1)
+            if wireframe: ax.plot(x,y,z,lw=0.01, c='k')
             coverage_idx += 1
 
     # ax.set_aspect('equal')
