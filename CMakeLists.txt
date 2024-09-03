@@ -79,8 +79,10 @@ set(SOURCES
 
 # add_executable(station_example ${RRTZ_SOURCES} ${CMAKE_SOURCE_DIR}/examples/station_example.cpp)
 # add_executable(cube_example ${RRTZ_SOURCES} ${CMAKE_SOURCE_DIR}/examples/cube_example.cpp)
+# add_executable(test_raytracing ${SOURCES} ${CMAKE_SOURCE_DIR}/examples/test_raytracing.cpp ${HEADER_FILES_HPP})
 
 add_executable(run_ccpp ${SOURCES} ${CMAKE_SOURCE_DIR}/src/run_ccpp.cpp ${HEADER_FILES_HPP})
 
 #link cuda
 target_link_libraries(run_ccpp PRIVATE ${CUDA_CUDA_LIBRARY})
+# target_link_libraries(test_raytracing PRIVATE ${CUDA_CUDA_LIBRARY})

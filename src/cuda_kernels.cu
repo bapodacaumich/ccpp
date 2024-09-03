@@ -117,6 +117,7 @@ __global__ void ray_int_tri(
     const Triangle *tri, // n_tri (1dim)
     size_t n_tri
     ) {
+    // true for not visiblw
 
     // epsilon for floating point comparison
     float eps = 1e-6f;
@@ -134,6 +135,13 @@ __global__ void ray_int_tri(
     // instantiate ray
     vec3 end = ends[ray_idx];
     vec3 vec = end - origin;
+
+    // check if triangle is facing away from camera
+    float norm_dot = tri[tri_idx].n.dot(origin - end);
+    // if (norm_dot > 0) {
+    //     result[res_idx] = true;
+    //     return;
+    // }
 
     // look for any intersections between the ray and triangle
     vec3 e1 = tri[tri_idx].b - tri[tri_idx].a;

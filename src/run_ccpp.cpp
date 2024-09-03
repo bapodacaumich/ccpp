@@ -43,11 +43,12 @@ int main(int argc, char** argv) {
     ViewpointGenerator vg(obsVec, vgd);
     std::string save_file = "station_remeshed_coverage_" + std::to_string(static_cast<int>(vgd)) + "m.csv";
 
-    // vg.populateCoverage();
-    // vg.saveCoverageMap(save_file);
-
     // save coverage map
-    vg.loadCoverageMap(save_file);
+    vg.populateCoverage();
+    vg.saveCoverageMap(save_file);
+
+    // load coverage map
+    // vg.loadCoverageMap(save_file);
 
     std::cout << "Running Greedy.." << std::endl;
     std::vector<Viewpoint> coverage_viewpoints = vg.getCoverageViewpoints();

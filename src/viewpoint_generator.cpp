@@ -266,25 +266,37 @@ void ViewpointGenerator::sortUpdateMarginalGain() {
             if (
             !(this->filtered_coverage[face_idx]) // face is not covered yet (according to coverage function)
             && this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx] // viewpoint covers face
-            && this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->inc_angle_max // viewpoint - face incidence angle is within threshold
-            && this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->filtered_inc_angles[face_idx] // improve incidence angle with this viewpoint
-            ) { 
-                // std::cout << "Incidence Angle: " << this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] << std::endl;
-                // define gain function here
-                // 1 is added to avoid division by zero and normalize best incidence angle to gain = 1
-                float inc_best = this->filtered_inc_angles[face_idx];
-                float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
-                float inc_improve = inc_best - inc_unfiltered;
-                float inc_improve_thresh = 0.0f;
-                if (inc_best < this->inc_improvement_minimum) {
-                    inc_improve_thresh = this->inc_improvement_threshold;
-                }
+            ) {
+            if ( this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->inc_angle_max // viewpoint - face incidence angle is within threshold
+            ) {
+                // float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
+                // bool covered = this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx];
+                // std::cout << "Incidence Angle: " << inc_unfiltered << " Covered: " << covered << std::endl;
+                // && this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->filtered_inc_angles[face_idx] // improve incidence angle with this viewpoint
+                // ) { 
+                if ( this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->filtered_inc_angles[face_idx] ) { // improve incidence angle with this viewpoint
+                    // std::cout << "Incidence Angle: " << this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] << std::endl;
+                    // define gain function here
+                    // 1 is added to avoid division by zero and normalize best incidence angle to gain = 1
+                    float inc_best = this->filtered_inc_angles[face_idx];
+                    float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
+                    float inc_improve = inc_best - inc_unfiltered;
+                    float inc_improve_thresh = 0.0f;
+                    if (inc_best < this->inc_improvement_minimum) {
+                        inc_improve_thresh = this->inc_improvement_threshold;
+                    }
 
-                if (inc_improve > inc_improve_thresh) {
-                    gain += 1/(inc_improve + 1);
+                    if (inc_improve > inc_improve_thresh) {
+                        gain += 1/(inc_improve + 1);
+                    }
+                    // gain += 1/(this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] + 1);
+                    // gain++;
                 }
-                // gain += 1/(this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] + 1);
-                // gain++;
+            } else {
+                // float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
+                // bool covered = this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx];
+                // std::cout << "Incidence Angle: " << inc_unfiltered << " Covered: " << covered << std::endl;
+            }
             }
         }
         // update the marginal gain array (marginal_gain)
@@ -339,6 +351,13 @@ void ViewpointGenerator::populateCoverage() {
     std::cout << "Populating Coverage Map..." << std::endl;
     // populate the filtered or unfiltered coverage map
     getCoverage(this->unfiltered_viewpoints, this->all_faces, this->coverage_map);
+    for (size_t vp_idx=0; vp_idx < this->unfiltered_viewpoints.size(); vp_idx++) {
+        for (size_t face_idx=0; face_idx < this->num_mesh_faces; face_idx++) {
+            if (this->coverage_map[vp_idx][face_idx] && this->inc_angle_map[vp_idx][face_idx] > M_PI / 2.0f) {
+                this->coverage_map[vp_idx][face_idx] = false;
+            }
+        }
+    }
 }
 
 
