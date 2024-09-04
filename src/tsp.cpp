@@ -27,7 +27,8 @@ TSP::TSP(CostMatrix cm) {
 }
 
 void TSP::reassignModuleMembership() {
-    std::vector<size_t> module_membership = {0,4,2,4,3,3,3,1,1,4};
+    // std::vector<size_t> module_membership = {0,4,2,4,3,3,3,1,1,4};
+    std::vector<size_t> module_membership = {0,2,2,2,3,3,3,1,1,2};
     for (size_t i = 0; i < this->nodes.size(); i++) {
         if (this->nodes[i].module_idx == 2) {
             if (this->cm.viewpoints[i].pose.y > 2.85f) {
