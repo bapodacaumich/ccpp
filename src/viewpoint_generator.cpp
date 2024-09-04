@@ -154,6 +154,40 @@ void ViewpointGenerator::loadCoverageMap(std::string& filename) {
     }
 }
 
+void ViewpointGenerator::saveUnfilteredViewpoints(std::string& filename) {
+    // save unfiltered viewpoints with updated module memberships
+    this->reassignModuleMembership();
+    std::vector<std::vector<float>> data;
+    for (size_t i = 0; i < this->unfiltered_viewpoints.size(); i++) {
+        std::vector<float> row;
+        row.push_back(this->unfiltered_viewpoints[i].pose.x);
+        row.push_back(this->unfiltered_viewpoints[i].pose.y);
+        row.push_back(this->unfiltered_viewpoints[i].pose.z);
+        row.push_back(this->unfiltered_viewpoints[i].viewdir.x);
+        row.push_back(this->unfiltered_viewpoints[i].viewdir.y);
+        row.push_back(this->unfiltered_viewpoints[i].viewdir.z);
+        row.push_back(this->unfiltered_viewpoints[i].module_idx);
+        data.push_back(row);
+    }
+    saveCSV("../data/unfiltered_viewpoints/" + filename, data);
+}
+
+void ViewpointGenerator::reassignModuleMembership() {
+    // reassign module membership to four modules
+    std::vector<size_t> module_membership = {0,2,3,2,3,3,3,1,1,2};
+    for (size_t i = 0; i < this->unfiltered_viewpoints.size(); i++) {
+        if (this->unfiltered_viewpoints[i].module_idx == 2) {
+            if (this->unfiltered_viewpoints[i].pose.y > 2.85f) {
+                this->unfiltered_viewpoints[i].module_idx = 3;
+            } else {
+                this->unfiltered_viewpoints[i].module_idx = 2;
+            }
+        } else {
+            this->unfiltered_viewpoints[i].module_idx = module_membership[this->unfiltered_viewpoints[i].module_idx];
+        }
+    }
+}
+
 std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints() {
     // run greedy algorithm to select viewpoints and put in coverage_viewpoints
     this->greedy();

@@ -41,7 +41,9 @@ int main(int argc, char** argv) {
     // // OBS obs = OBS(triCubeFaces);
     // // obsVec.push_back(obs);
 
-    // ViewpointGenerator vg(obsVec, vgd);
+    ViewpointGenerator vg(obsVec, vgd);
+    std::string unfiltered_vp_file = "unfiltered_viewpoints_" + std::to_string(static_cast<int>(vgd)) + "m.csv";
+    vg.saveUnfilteredViewpoints(unfiltered_vp_file);
     // std::string save_file = "station_remeshed_coverage_" + std::to_string(static_cast<int>(vgd)) + "m.csv";
 
     // // save coverage map
@@ -62,6 +64,7 @@ int main(int argc, char** argv) {
     //     vp_data.push_back(coverage_viewpoints[i].viewdir.x);
     //     vp_data.push_back(coverage_viewpoints[i].viewdir.y);
     //     vp_data.push_back(coverage_viewpoints[i].viewdir.z);
+    //     vp_data.push_back(coverage_viewpoints[i].module_idx);
     //     viewpoint_data_save.push_back(vp_data);
     // }
     // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_vp_set.csv", viewpoint_data_save);
@@ -84,58 +87,58 @@ int main(int argc, char** argv) {
     //     std::cout << "Viewpoint " << i << ": pose=" << coverage_viewpoints[i].pose.toString() << " viewdir=" << coverage_viewpoints[i].viewdir.toString() << std::endl;
     // }
 
-    // Compute cost matrix for travelling salesman problem for all viewpoints
-    Viewpoint start = Viewpoint( vec3(1.8f, 4.7f, 2.7f), vec3(0.0f, 0.0f, -1.0f), 0);
-    size_t rrtz_iter = 2000;
-    CostMatrix cm(rrtz_iter);
-    std::cout << "loading viewpoints" << std::endl;
-    cm.loadViewpoints(
-        "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_vp_set.csv",
-        start
-    );
+    // // Compute cost matrix for travelling salesman problem for all viewpoints
+    // Viewpoint start = Viewpoint( vec3(1.8f, 4.7f, 2.7f), vec3(0.0f, 0.0f, -1.0f), 0);
+    // size_t rrtz_iter = 2000;
+    // CostMatrix cm(rrtz_iter);
+    // std::cout << "loading viewpoints" << std::endl;
+    // cm.loadViewpoints(
+    //     "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_vp_set.csv",
+    //     start
+    // );
 
-    // // GENERATING
-    // std::cout << "generating paths" << std::endl;
-    // cm.generatePathMatrix();
-    // std::cout << "saving path matrix" << std::endl;
-    // cm.savePathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_path_matrix.csv");
-    // std::cout << "saving simple cost matrix" << std::endl;
-    // cm.saveSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_simple_cost_matrix.csv");
-    // std::cout << "generating cost matrix" << std::endl;
-    // cm.generateCostMatrix();
-    // std::cout << "saving cost matrix" << std::endl;
-    // cm.saveCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_cost_matrix.csv");
+    // // // GENERATING
+    // // std::cout << "generating paths" << std::endl;
+    // // cm.generatePathMatrix();
+    // // std::cout << "saving path matrix" << std::endl;
+    // // cm.savePathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_path_matrix.csv");
+    // // std::cout << "saving simple cost matrix" << std::endl;
+    // // cm.saveSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_simple_cost_matrix.csv");
+    // // std::cout << "generating cost matrix" << std::endl;
+    // // cm.generateCostMatrix();
+    // // std::cout << "saving cost matrix" << std::endl;
+    // // cm.saveCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_cost_matrix.csv");
 
-    // LOADING
-    std::cout << "loading path matrix" << std::endl;
-    cm.loadPathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_path_matrix.csv");
-    std::cout << "loading simple cost matrix" << std::endl;
-    cm.loadSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_simple_cost_matrix.csv");
-    std::cout << "loading cost matrix" << std::endl;
-    cm.loadCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_cost_matrix.csv");
+    // // LOADING
+    // std::cout << "loading path matrix" << std::endl;
+    // cm.loadPathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_path_matrix.csv");
+    // std::cout << "loading simple cost matrix" << std::endl;
+    // cm.loadSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_simple_cost_matrix.csv");
+    // std::cout << "loading cost matrix" << std::endl;
+    // cm.loadCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_cost_matrix.csv");
 
+    // // TSP tsp(cm);
+    // std::cout << "creating TSP object" << std::endl;
     // TSP tsp(cm);
-    std::cout << "creating TSP object" << std::endl;
-    TSP tsp(cm);
-    tsp.reassignModuleMembership();
-    tsp.greedyInit();
-    tsp.twoOpt();
+    // tsp.reassignModuleMembership();
+    // tsp.greedyInit();
+    // tsp.twoOpt();
     
-    // get path
-    std::vector<std::vector<float>> path;
-    tsp.getPath(path);
+    // // get path
+    // std::vector<std::vector<float>> path;
+    // tsp.getPath(path);
 
-    // view path
-    for (size_t i = 0; i < path.size(); i++) {
-        std::cout << "Viewpoint " << i << ": ";
-        for (size_t j = 0; j < path[i].size(); j++) {
-            std::cout << std::to_string(path[i][j]) << " ";
-        }
-        std::cout << std::endl;
-    }
+    // // view path
+    // for (size_t i = 0; i < path.size(); i++) {
+    //     std::cout << "Viewpoint " << i << ": ";
+    //     for (size_t j = 0; j < path[i].size(); j++) {
+    //         std::cout << std::to_string(path[i][j]) << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
-    // save path
-    saveCSV("../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m.csv", path);
+    // // save path
+    // saveCSV("../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m.csv", path);
 
 
     return 0;
