@@ -185,6 +185,7 @@ void ViewpointGenerator::reassignModuleMembership() {
         } else {
             this->unfiltered_viewpoints[i].module_idx = module_membership[this->unfiltered_viewpoints[i].module_idx];
         }
+        std::cout << this->unfiltered_viewpoints[i].module_idx << ", ";
     }
 }
 
