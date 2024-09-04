@@ -134,6 +134,7 @@ void CostMatrix::loadViewpoints(std::string filename, Viewpoint start) {
             vec3(viewpoint_data[i][3], viewpoint_data[i][4], viewpoint_data[i][5]),
             viewpoint_data[i][6]
         ));
+        std::cout << "Viewpoint " << i << " mm: " << viewpoints.back().module_idx << std::endl;
     }
     std::cout << "n_vp = " << this->n_vp << " should equal " << this->viewpoints.size() << std::endl;
 }

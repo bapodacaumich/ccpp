@@ -18,7 +18,7 @@ class TSP {
         float pathCost();
         float pathCost(std::vector<TSPWaypoint>& path);
         void getPath(std::vector<std::vector<float>>& path); // return path with view directions
-        void reassignModuleMembership(const std::vector<size_t>& module_membership);
+        void reassignModuleMembership();
 
     private:
 
@@ -33,6 +33,8 @@ class TSP {
         size_t nearestNeighbor(TSPWaypoint wpt, float& best_cost);
         size_t nearest(float& best_cost, size_t& node_idx);
 
+        // check path module continuity for this->path
+        bool checkModuleContinuity();
 };
 
 #endif // TSP_HPP

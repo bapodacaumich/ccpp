@@ -26,9 +26,18 @@ TSP::TSP(CostMatrix cm) {
     }
 }
 
-void TSP::reassignModuleMembership(const std::vector<size_t>& module_membership) {
-    for (size_t i = 0; i < this->n_vp; i++) {
-        this->nodes[i].module_idx = module_membership[i];
+void TSP::reassignModuleMembership() {
+    std::vector<size_t> module_membership = {0,4,2,4,3,3,3,1,1,4};
+    for (size_t i = 0; i < this->nodes.size(); i++) {
+        if (this->nodes[i].module_idx == 2) {
+            if (this->cm.viewpoints[i].pose.y > 2.85f) {
+                this->nodes[i].module_idx = 2;
+            } else {
+                this->nodes[i].module_idx = 4;
+            }
+        } else {
+            this->nodes[i].module_idx = module_membership[this->nodes[i].module_idx];
+        }
     }
 }
 
@@ -64,7 +73,7 @@ void TSP::greedyInit() {
     //     if (this->nodes.size() == 0) {
     //         break;
     //     }
-        std::cout << "Nodes left: " << this->nodes.size() << std::endl;
+        // std::cout << "Nodes left: " << this->nodes.size() << std::endl;
         for (size_t i = 0; i < this->nodes.size(); i++) {
             std::cout << this->nodes[i].toString() << " ";
         }
@@ -99,15 +108,34 @@ void TSP::greedyInit() {
     std::cout << std::endl << "Cost: " << this->pathCost() << std::endl;
 }
 
+bool TSP::checkModuleContinuity() {
+    // check if path has continuity in module membership
+    std::vector<size_t> module_found = std::vector<size_t>(1, this->path[0].module_idx);
+    for (size_t i = 1; i < this->path.size(); i++) {
+        if (this->path[i].module_idx != this->path[i-1].module_idx) {
+            if(std::find(module_found.begin(), module_found.end(), this->path[i].module_idx) != module_found.end()) {
+                return false;
+            } else {
+                module_found.push_back(this->path[i].module_idx);
+            }
+        }
+    }
+    return true;
+}
+
 void TSP::twoOpt() {
     // 2-opt algorithm
     // https://en.wikipedia.org/wiki/2-opt
     // https://en.wikipedia.org/wiki/Travelling_salesman_problem
-    float last_cost = std::numeric_limits<float>::max();
-    float new_cost = this->pathCost();
-    while (new_cost < last_cost) {
+    float best_cost = this->pathCost();
+    float new_cost = 0;
+
+    while (new_cost < best_cost) {
+    // while (last_cost == std::numeric_limits<float>::max()) {
         for (size_t idx0 = 1; idx0 < this->path.size() - 2; idx0++) {
+        // for (size_t idx0 = 1; idx0 < 4; idx0++) {
             for (size_t idx1 = 3; idx1 < this->path.size(); idx1++) {
+            // for (size_t idx1 = 3; idx1 < this->path.size(); idx1++) {
                 // get iterators to perform swap
                 auto it0 = this->path.begin() + idx0;
                 auto it1 = this->path.begin() + idx1;
@@ -116,12 +144,13 @@ void TSP::twoOpt() {
                 std::reverse(it0, it1);
 
                 // calculate new cost
-                last_cost = new_cost;
                 new_cost = this->pathCost();
 
                 // if new cost is worse, swap back
-                if (new_cost >= last_cost) {
+                if (new_cost >= best_cost || !this->checkModuleContinuity()) {
                     std::reverse(it0, it1);
+                } else {
+                    best_cost = new_cost;
                 }
             }
         }
@@ -131,7 +160,7 @@ void TSP::twoOpt() {
     for (size_t i = 0; i < this->path.size(); i++) {
         std::cout << this->path[i].toString() << " ";
     }
-    std::cout << std::endl << "Cost: " << new_cost << std::endl;
+    std::cout << std::endl << "Cost: " << best_cost << std::endl;
 }
 
 void TSP::getPath(std::vector<std::vector<float>>& path) {
@@ -209,7 +238,7 @@ size_t TSP::nearestNeighbor(TSPWaypoint wpt, float& best_cost) {
     best_cost = std::numeric_limits<float>::max();
     size_t best_idx = -1; // largest ulong (probably out of range)
 
-    bool module_in_path; // true if viewpoints with same module membership as wpt are in path
+    bool module_in_path = false; // true if viewpoints with same module membership as wpt are in path
     for (size_t i = 0; i < this->path.size(); i++) {
         if (this->path[i].module_idx == wpt.module_idx) {module_in_path = true;}
     }
@@ -218,9 +247,8 @@ size_t TSP::nearestNeighbor(TSPWaypoint wpt, float& best_cost) {
     // i starts at 1 because we can't insert before start viewpoint
     for (size_t i = 1; i < this->path.size() + 1; i++) {
         size_t prev_module_idx = this->path[i-1].module_idx;
-        size_t next_module_idx;
+        size_t next_module_idx = -1;
         if (i < this->path.size()) { next_module_idx = this->path[i].module_idx; } // viewpoint after insert
-        else { next_module_idx = wpt.module_idx; } // inserting at end
 
         if (next_module_idx == wpt.module_idx  // continuous module membership
         || prev_module_idx == wpt.module_idx   // continuous module membership
@@ -248,7 +276,7 @@ size_t TSP::nearest(float& best_cost, size_t& node_idx) {
         // find best place to insert idx into path lowest cost
         float insertion_cost = 0.0f; // cost after inserting 'nodes[i]' into path at closest/cheapest location
         size_t best_insertion_idx = this->nearestNeighbor(this->nodes[i], insertion_cost);
-        std::cout << "Insertion cost for node " << this->nodes[i].toString() << " at index " << best_insertion_idx << " is " << insertion_cost << std::endl;
+        // std::cout << "Insertion cost for node " << this->nodes[i].toString() << " at index " << best_insertion_idx << " is " << insertion_cost << std::endl;
 
         if (insertion_cost < best_cost) {
             best_cost = insertion_cost;
