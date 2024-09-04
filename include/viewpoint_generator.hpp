@@ -40,6 +40,7 @@ class ViewpointGenerator {
         void getFilteredCoverage(std::vector<bool>& filtered_coverage_data);
         void missedCoverage();
         void assignModuleMembership(std::vector<Viewpoint>& viewpoints);
+        void saveUnfilteredViewpoints(std::string& filename);
 
     private:
 
@@ -80,6 +81,9 @@ class ViewpointGenerator {
         void updateBestIncAngles();
         void updateCoverage(float inc_angle_threshold);
         void setUpCoverageGain();
+
+        // reassign module membership to four modules
+        void reassignModuleMembership();
 };
 
 #endif // VIEWPOINT_GENERATOR_HPP
