@@ -74,8 +74,8 @@ def coverage_area(self, pose, d=0.5, hfov=60, vfov=60):
 
 
 # def plot_path_direct(cam_dist, local, folder='always_start_best', station=True, ax=None):
-def plot_path_direct(file, ax=None):
-    filepath = os.path.join(os.getcwd(), '..', 'data', 'coverage_viewpoint_sets', file)
+def plot_path_direct(folder, file, ax=None):
+    filepath = os.path.join(os.getcwd(), '..', 'data', folder, file)
     # filepath = os.getcwd() + '\\data\\coverage_viewpoint_sets\\' + file
     # for file in os.listdir(dir):
     #     if file.endswith(".npy"): continue
@@ -84,15 +84,15 @@ def plot_path_direct(file, ax=None):
     #             filepath=os.path.join(dir, file)
     # print('found file: ', filepath)
     viewpoints = np.loadtxt(filepath, delimiter=',')
-    print('Num Viewpoints: ', viewpoints.shape[0])
+    print(viewpoints.shape)
     if ax is None: ax = plt.figure(figsize=(8, 8)).add_subplot(projection='3d')
-    # ax.plot(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], 'k-')
-    ax.scatter(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], c='k', alpha=1.0)
+    ax.plot(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], 'k-')
+    ax.scatter(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], c='k', alpha=0.2)
     # ax.quiver(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], viewpoints[:,3], viewpoints[:,4], viewpoints[:,5], length=1)
-    # weights = np.linspace(0,1,viewpoints.shape[0])
-    weights = np.ones(viewpoints.shape[0])
-    # sc = ax.scatter(*[viewpoints[:,i] for i in range(3)], c=weights, cmap='YlOrBr')
-    ax.quiver(*[viewpoints[:,i] for i in range(viewpoints.shape[1])], length=1)
+    weights = np.linspace(0,1,viewpoints.shape[0])
+    # weights = np.ones(viewpoints.shape[0])
+    sc = ax.scatter(*[viewpoints[:,i] for i in range(3)], c=weights, cmap='YlOrBr', alpha=0.9)
+    ax.quiver(*[viewpoints[:,i] for i in range(viewpoints.shape[1]-1)], length=1)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')

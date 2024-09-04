@@ -5,9 +5,10 @@ import numpy as np
 
 
 def plotpath():
-    vgd = '4m'
+    vgd = '2m'
     ax = visualize_station(coverage_file='coverage_' + vgd + '_coverage.csv')
-    ax = plot_path_direct('coverage_' + vgd + '_vp_set.csv', ax=ax)
+    # ax = plot_path_direct('coverage_viewpoint_sets', 'coverage_' + vgd + '_vp_set.csv', ax=ax)
+    ax = plot_path_direct('ordered_viewpoints', vgd + '.csv', ax=ax)
     # debug coverage
     # vp0 = np.array([0.574084,6.236693,6.799296, 0.489475,0.033094,-0.871389])
     # ax.scatter(vp0[0], vp0[1], vp0[2], c='k', alpha=1.0)
