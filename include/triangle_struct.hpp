@@ -8,16 +8,26 @@
 
 struct Triangle {
     vec3 a, b, c, n;
-    Triangle () : a(), b(), c(), n() {}
+    size_t module_idx; // module index for module membership
+    Triangle () : a(), b(), c(), n(), module_idx() {}
 
-    Triangle (const Triangle& t) : a(t.a), b(t.b), c(t.c), n(t.n) {}
+    Triangle (const Triangle& t) : a(t.a), b(t.b), c(t.c), n(t.n) {
+        this->module_idx = t.module_idx;
+    }
 
     Triangle (vec3 a, vec3 b, vec3 c) : a(a), b(b), c(c){
         this->n = (b - a).cross(c - a);
         (this->n).normalize();
+        this->module_idx = 0;
     }
 
     Triangle (vec3 a, vec3 b, vec3 c, vec3 n): a(a), b(b), c(c), n(n) {
+        this->module_idx = 0;
+        (this->n).normalize();
+    }
+
+    Triangle (vec3 a, vec3 b, vec3 c, vec3 n, size_t module_idx): a(a), b(b), c(c), n(n){
+        this->module_idx = module_idx;
         (this->n).normalize();
     }
 
