@@ -39,6 +39,7 @@ class ViewpointGenerator {
         void printIncidenceAngles();
         void getFilteredCoverage(std::vector<bool>& filtered_coverage_data);
         void missedCoverage();
+        void assignModuleMembership(std::vector<Viewpoint>& viewpoints);
 
     private:
 

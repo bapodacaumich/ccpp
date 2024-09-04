@@ -214,6 +214,26 @@ void ViewpointGenerator::missedCoverage() {
     std::cout << "Number of faces with incidence angle < max threshold=" << num_covered << std::endl;
 }
 
+void ViewpointGenerator::assignModuleMembership(std::vector<Viewpoint>& viewpoints) {
+    // assign module membership to viewpoints
+    // for now, just assign all viewpoints to module 0
+    for (size_t i = 0; i < viewpoints.size(); i++) {
+        float closest_err = std::numeric_limits<float>::max();
+        size_t uidx = -1;
+        std::cout << "Viewpoint " << i << ": " << viewpoints[i].pose.toString() << std::endl;
+        for (size_t j = 0; j < this->unfiltered_viewpoints.size(); j++) {
+            vec3 vec_err = viewpoints[i].pose - this->unfiltered_viewpoints[j].pose;
+            float err = vec_err.norm();
+            if (err < closest_err) {
+                closest_err = err;
+                uidx = j;
+            }
+        }
+        std::cout << "Viewpoint " << i << " assigned to module " << this->unfiltered_viewpoints[uidx].module_idx << " with err=" << std::to_string(closest_err) << std::endl;
+        viewpoints[i].module_idx = this->unfiltered_viewpoints[uidx].module_idx;
+    }
+}
+
 void ViewpointGenerator::greedy() {
     /*
     * greedy algorithm to select viewpoints from unfiltered_viewpoints
@@ -438,7 +458,8 @@ bool ViewpointGenerator::populateViewpoints() {
 
         Viewpoint vp = Viewpoint(
             centroid + normal * this->vgd, // TODO: dynamic vgd for obstacle avoidance
-            normal * -1.0f
+            normal * -1.0f,
+            this->all_faces[face_idx]->module_idx
             );
         sampled_viewpoints.push_back(vp);
         sampled_face_indices.push_back(face_idx);

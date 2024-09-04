@@ -102,8 +102,8 @@ void CostMatrix::generatePathMatrix() {
             } else {
                 // setup and run rrtz
                 std::vector<vec3> path;
-                vec3 start = this->viewpoints[vp_idx0];
-                vec3 goal = this->viewpoints[vp_idx1];
+                vec3 start = this->viewpoints[vp_idx0].pose;
+                vec3 goal = this->viewpoints[vp_idx1].pose;
                 RRTZ rrtz = RRTZ(start, goal, obsVec, limits, this->rrtz_iterations);
                 if (rrtz.run(path)) {
                     // if rrtz runs, add path and path cost to matrix
@@ -118,20 +118,25 @@ void CostMatrix::generatePathMatrix() {
     }
 }
 
-void CostMatrix::loadViewpoints(std::string filename, vec3 start) {
+void CostMatrix::loadViewpoints(std::string filename, Viewpoint start) {
     // load the viewpoints from a file
     std::vector<std::vector<float>> viewpoint_data;
-    loadCSV(filename, viewpoint_data, 6, ',');
+    loadCSV(filename, viewpoint_data, 7, ',');
     this->n_vp = viewpoint_data.size() + 1;
 
     this->viewpoints.clear();
-    this->viewpoint_dirs.clear();
+
+    // add start viewpoint
+    this->viewpoints.push_back(start);
     for (size_t i = 0; i < viewpoint_data.size(); i++) {
-        vec3 vp = vec3(viewpoint_data[i][0], viewpoint_data[i][1], viewpoint_data[i][2]);
-        vec3 dir = vec3(viewpoint_data[i][3], viewpoint_data[i][4], viewpoint_data[i][5]);
-        this->viewpoints.push_back(vp);
-        this->viewpoint_dirs.push_back(dir);
+        viewpoints.push_back(Viewpoint(
+            vec3(viewpoint_data[i][0], viewpoint_data[i][1], viewpoint_data[i][2]),
+            vec3(viewpoint_data[i][3], viewpoint_data[i][4], viewpoint_data[i][5]),
+            viewpoint_data[i][6]
+        ));
+        std::cout << "Viewpoint " << i << " mm: " << viewpoints.back().module_idx << std::endl;
     }
+    std::cout << "n_vp = " << this->n_vp << " should equal " << this->viewpoints.size() << std::endl;
 }
 
 void CostMatrix::loadSimpleCostMatrix(std::string filename) {

@@ -2,6 +2,7 @@
 #define COST_MATRIX_HPP
 
 #include "vec3_struct.hpp"
+#include "viewpoint_struct.hpp"
 
 #include <vector>
 
@@ -11,7 +12,7 @@ class CostMatrix {
         CostMatrix(size_t rrtz_iterations);
         void generateCostMatrix();
         void generatePathMatrix();
-        void loadViewpoints(std::string filename, vec3 start);
+        void loadViewpoints(std::string filename, Viewpoint start);
         void loadSimpleCostMatrix(std::string filename);
         void saveSimpleCostMatrix(std::string filename);
         void loadCostMatrix(std::string filename);
@@ -27,7 +28,7 @@ class CostMatrix {
         size_t n_vp; // number of viewpoints
 
         // coverage viewpoints
-        std::vector<vec3> viewpoints;
+        std::vector<Viewpoint> viewpoints;
         std::vector<vec3> viewpoint_dirs;
 
         // (n, n, n) matrix of costs from viewpoint j to k given i->j->k.

@@ -222,16 +222,17 @@ void loadCube(std::vector<std::vector<std::vector<float>>>& data, float xs, floa
     };
 }
 
-void convertFlatToTriangle(const std::vector<std::vector<float>>& flatData, std::vector<Triangle>& triangles) {
+void convertFlatToTriangle(const std::vector<std::vector<float>>& flatData, std::vector<Triangle>& triangles, size_t module_idx) {
     /* convert flat 2d object to triangles assuming each triangle is flattened into x1,y1,z1,x2,y2,z2,x3,y3,z3
     * each triangle also has normal -- [3 points, 9 numbers] [1 normal, 3 numbers]
     */
-    for (size_t i = 0; i < flatData.size(); ++i) {
+    for (size_t i = 0; i < flatData.size(); i++) {
         triangles.push_back(Triangle(
-            vec3(flatData[i][0], flatData[i][1],  flatData[i][2]), // v0
-            vec3(flatData[i][3], flatData[i][4],  flatData[i][5]), // v1
-            vec3(flatData[i][6], flatData[i][7],  flatData[i][8]), // v2
-            vec3(flatData[i][9], flatData[i][10], flatData[i][11]) // normal
+            vec3(flatData[i][0], flatData[i][1],  flatData[i][2]),  // v0
+            vec3(flatData[i][3], flatData[i][4],  flatData[i][5]),  // v1
+            vec3(flatData[i][6], flatData[i][7],  flatData[i][8]),  // v2
+            vec3(flatData[i][9], flatData[i][10], flatData[i][11]), // normal
+            module_idx                                              // module index
         ));
     }
 }
@@ -271,7 +272,7 @@ void loadConvexStationOBS(std::vector<OBS>& obsVec) {
 
         // convert flat data to triangle objects
         std::vector<Triangle> tris;
-        convertFlatToTriangle(tri_data, tris);
+        convertFlatToTriangle(tri_data, tris, i);
 
         vec3 offset = vec3(2.529f, 4.821, 2.591);
 
@@ -301,11 +302,12 @@ void loadStationOBS(std::vector<OBS>& obsVec) {
         std::vector<std::vector<float>> tri_data;
 
         // each row is a triangle (3 points = 9 numbers) and normals (3 numbers)
-        loadCSV(filename, tri_data, 12);
+        loadCSV(filename, tri_data, 12, ' ');
 
         // convert flat data to triangle objects
         std::vector<Triangle> tris;
-        convertFlatToTriangle(tri_data, tris);
+        std::cout << "Module " << i << ": ";
+        convertFlatToTriangle(tri_data, tris, i);
         OBS obs = OBS(tris);
         obsVec.push_back(obs);
     }
