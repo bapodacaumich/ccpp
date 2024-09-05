@@ -16,7 +16,7 @@ def obs_trisurf(meshes, coverage=None, show=True, surface=True, wireframe=True, 
     n_coverage = len(coverage) if coverage is not None else 0
     highlight_faces = [756,1032] # for debugging purposes
     highlight_faces = []
-    assert num_faces == n_coverage, f'coverage length {n_coverage} does not match number of faces {num_faces}'
+    # assert num_faces == n_coverage, f'coverage length {n_coverage} does not match number of faces {num_faces}'
     for mesh in meshes:
         for face in mesh:
             x = [x[0] for x in face]
@@ -86,16 +86,24 @@ def plot_path_direct(folder, file, ax=None):
     viewpoints = np.loadtxt(filepath, delimiter=',')
     print(viewpoints.shape)
     if ax is None: ax = plt.figure(figsize=(8, 8)).add_subplot(projection='3d')
-    ax.plot(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], 'k-')
-    ax.scatter(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], c='k', alpha=0.2)
+    # ax.plot(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], 'k-')
+    # ax.scatter(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], c='k', alpha=0.2)
     # ax.quiver(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], viewpoints[:,3], viewpoints[:,4], viewpoints[:,5], length=1)
-    weights = np.linspace(0,1,viewpoints.shape[0])
-    # weights = np.ones(viewpoints.shape[0])
-    sc = ax.scatter(*[viewpoints[:,i] for i in range(3)], c=weights, cmap='YlOrBr', alpha=0.9)
-    ax.quiver(*[viewpoints[:,i] for i in range(viewpoints.shape[1]-1)], length=1)
+    # weights = np.linspace(0,1,viewpoints.shape[0])
+    # weights = viewpoints[:,6] / (np.max(viewpoints[:,6]) + 2) + 1/np.max(viewpoints[:,6])
+    ax.scatter(*[viewpoints[viewpoints[:,6]==0,i] for i in range(3)], c="tab:blue", alpha=0.9, label='Module 0')
+    ax.scatter(*[viewpoints[viewpoints[:,6]==1,i] for i in range(3)], c="tab:orange", alpha=0.9, label='Module 1')
+    ax.scatter(*[viewpoints[viewpoints[:,6]==2,i] for i in range(3)], c="tab:purple", alpha=0.9, label='Module 2')
+    ax.scatter(*[viewpoints[viewpoints[:,6]==3,i] for i in range(3)], c="tab:green", alpha=0.9, label='Module 3')
+    weights = np.ones(viewpoints.shape[0])
+    # sc = ax.scatter(*[viewpoints[:,i] for i in range(3)], c=weights, cmap='YlOrBr', alpha=0.9)
+    # sc = ax.scatter(*[viewpoints[:,i] for i in range(3)], c=weights, cmap='hsv', alpha=0.9)
+    ax.quiver(*[viewpoints[:,i] for i in range(6)], length=0.2)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
+    ax.set_title('Viewpoints by Module Membership')
+    ax.legend()
     # plt.colorbar(sc, shrink=0.5, pad=-0.04, label='Path Progression')
     return ax
 
