@@ -174,10 +174,10 @@ void ViewpointGenerator::saveUnfilteredViewpoints(std::string& filename) {
 
 void ViewpointGenerator::reassignModuleMembership() {
     // reassign module membership to four modules
-    std::vector<size_t> module_membership = {0,2,3,2,3,3,3,1,1,2};
+    std::vector<size_t> module_membership = {0,3,2,3,2,2,2,1,1,3};
     for (size_t i = 0; i < this->unfiltered_viewpoints.size(); i++) {
         if (this->unfiltered_viewpoints[i].module_idx == 2) {
-            if (this->unfiltered_viewpoints[i].pose.y > 2.85f) {
+            if (this->unfiltered_viewpoints[i].pose.y < 2.85f) {
                 this->unfiltered_viewpoints[i].module_idx = 3;
             } else {
                 this->unfiltered_viewpoints[i].module_idx = 2;
@@ -185,7 +185,6 @@ void ViewpointGenerator::reassignModuleMembership() {
         } else {
             this->unfiltered_viewpoints[i].module_idx = module_membership[this->unfiltered_viewpoints[i].module_idx];
         }
-        std::cout << this->unfiltered_viewpoints[i].module_idx << ", ";
     }
 }
 

@@ -1,6 +1,7 @@
 #include "cost_matrix.hpp"
 #include "tsp.hpp"
 #include "tsp_waypoint_struct.hpp"
+#include "vec3_struct.hpp"
 #include "viewpoint_struct.hpp"
 
 #include <algorithm>
@@ -28,17 +29,24 @@ TSP::TSP(CostMatrix cm) {
 
 void TSP::reassignModuleMembership() {
     // std::vector<size_t> module_membership = {0,4,2,4,3,3,3,1,1,4};
-    std::vector<size_t> module_membership = {0,2,2,2,3,3,3,1,1,2};
+    std::vector<size_t> module_membership = {0,3,2,3,2,2,2,1,1,3};
     for (size_t i = 0; i < this->nodes.size(); i++) {
         if (this->nodes[i].module_idx == 2) {
-            if (this->cm.viewpoints[i].pose.y > 2.85f) {
-                this->nodes[i].module_idx = 2;
+            if (this->cm.viewpoints[i].pose.y < 2.85f) {
+                this->nodes[i].module_idx = 3;
             } else {
-                this->nodes[i].module_idx = 4;
+                this->nodes[i].module_idx = 2;
             }
         } else {
             this->nodes[i].module_idx = module_membership[this->nodes[i].module_idx];
         }
+    }
+}
+
+void TSP::globalOpt() {
+    // set all module idx values to 0 for global optimization
+    for (size_t i = 0; i < this->nodes.size(); i++) {
+        this->nodes[i].module_idx=0;
     }
 }
 
@@ -131,7 +139,9 @@ void TSP::twoOpt() {
     float best_cost = this->pathCost();
     float new_cost = 0;
 
+    std::cout << "Two Opt Cost Improvement" << std::endl << std::endl;
     while (new_cost < best_cost) {
+        std::cout << "\rBest Cost=" << std::to_string(best_cost) << " New Cost=" << std::to_string(new_cost);
     // while (last_cost == std::numeric_limits<float>::max()) {
         for (size_t idx0 = 1; idx0 < this->path.size() - 2; idx0++) {
         // for (size_t idx0 = 1; idx0 < 4; idx0++) {
@@ -150,6 +160,7 @@ void TSP::twoOpt() {
                 // if new cost is worse, swap back
                 if (new_cost >= best_cost || !this->checkModuleContinuity()) {
                     std::reverse(it0, it1);
+                    new_cost = best_cost;
                 } else {
                     best_cost = new_cost;
                 }
@@ -166,16 +177,33 @@ void TSP::twoOpt() {
 
 void TSP::getPath(std::vector<std::vector<float>>& path) {
     // get path as vector of vec3
-    for (size_t i = 0; i < this->path.size(); i++) {
-        std::vector<float> vp;
-        vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].pose.x);
-        vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].pose.y);
-        vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].pose.z);
-        vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].viewdir.x);
-        vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].viewdir.y);
-        vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].viewdir.z);
-        vp.push_back(this->path[i].module_idx);
-        path.push_back(vp);
+    // std::vector<std::vector<float>> vps;
+    for (size_t i = 1; i < this->path.size(); i++) {
+        std::vector<vec3> subpath = this->cm.getPath(this->path[i-1].vp_idx, this->path[i].vp_idx);
+
+        size_t start_idx = 1;
+        if (i == 1) { start_idx = 0;}
+
+        for (size_t j = start_idx; j < subpath.size(); j++) {
+            std::vector<float> point;
+            point.push_back(subpath[j].x);
+            point.push_back(subpath[j].y);
+            point.push_back(subpath[j].z);
+            point.push_back(this->cm.viewpoints[this->path[i].vp_idx].viewdir.x);
+            point.push_back(this->cm.viewpoints[this->path[i].vp_idx].viewdir.y);
+            point.push_back(this->cm.viewpoints[this->path[i].vp_idx].viewdir.z);
+            point.push_back(this->path[i].module_idx);
+            path.push_back(point);
+        }
+        // std::vector<float> vp;
+        // vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].pose.x);
+        // vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].pose.y);
+        // vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].pose.z);
+        // vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].viewdir.x);
+        // vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].viewdir.y);
+        // vp.push_back(this->cm.viewpoints[this->path[i].vp_idx].viewdir.z);
+        // vp.push_back(this->path[i].module_idx);
+        // vps.push_back(vp);
     }
 }
 
