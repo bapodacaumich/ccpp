@@ -70,25 +70,29 @@ void CostMatrix::generatePathMatrix() {
 
 
     std::ostringstream message;
+    auto start = std::chrono::high_resolution_clock::now();
     auto now = std::chrono::high_resolution_clock::now();
     for (size_t vp_idx0 = 0; vp_idx0 < this->n_vp; vp_idx0++) {
         for (size_t vp_idx1 = 0; vp_idx1 < this->n_vp; vp_idx1++) {
-            auto prev_now = now;
+            // auto prev_now = now;
             now = std::chrono::high_resolution_clock::now();
             // Calculate the duration
-            std::chrono::duration<double> duration = now - prev_now;
-            double loop_period = duration.count();
+            std::chrono::duration<double> duration = now - start;
+            double time_taken = duration.count();
 
             // Output the duration in seconds
             size_t leftinrow = this->n_vp - vp_idx1;
             size_t leftincol = this->n_vp - vp_idx0;
             size_t itemsleft = leftinrow + leftincol * leftincol / 2;
-            double seconds_remaining = loop_period * (itemsleft);
+            size_t totalitems = (this->n_vp + 1) * (this->n_vp + 1) / 2;
+
+            double avg_loop_period = time_taken / (totalitems - itemsleft);
+            double seconds_remaining = avg_loop_period * (itemsleft);
             double minutes_remaining = seconds_remaining / 60.0;
             seconds_remaining = std::fmod(seconds_remaining, 60.0);
             message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
             double progress = 1.0 - static_cast<double>(itemsleft) / static_cast<double>((this->n_vp + 1) * (this->n_vp + 1) / 2);
-            displayProgressBar(progress, 150, message);
+            displayProgressBar(progress, 50, message);
             message.str("");
             // if the viewpoints are the same, add empty path and infinite cost to matrix
             if (vp_idx0 == vp_idx1) { continue; }
@@ -217,10 +221,13 @@ void CostMatrix::loadPathMatrix(std::string filename) {
             std::cout << idx0 << " " << idx1 << (path_matrix_data[i].size()-2) % 3 << std::endl;
         }
 
+        std::vector<vec3> path;
         for (size_t j = 2; j < path_matrix_data[i].size(); j+=3) {
             vec3 point = vec3(path_matrix_data[i][j], path_matrix_data[i][j+1], path_matrix_data[i][j+2]);
-            this->path_matrix[idx0][idx1].push_back(point);
+            path.push_back(point);
+            // this->path_matrix[idx0][idx1].push_back(point);
         }
+        this->path_matrix[idx0][idx1] = path;
     }
 }
 void CostMatrix::savePathMatrix(std::string filename) {
@@ -235,8 +242,8 @@ void CostMatrix::savePathMatrix(std::string filename) {
                 row.push_back(this->path_matrix[i][j][k].x);
                 row.push_back(this->path_matrix[i][j][k].y);
                 row.push_back(this->path_matrix[i][j][k].z);
-                path_matrix_data.push_back(row);
             }
+            path_matrix_data.push_back(row);
         }
     }
     saveCSV(filename, path_matrix_data);

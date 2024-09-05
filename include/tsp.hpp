@@ -19,6 +19,7 @@ class TSP {
         float pathCost(std::vector<TSPWaypoint>& path);
         void getPath(std::vector<std::vector<float>>& path); // return path with view directions
         void reassignModuleMembership();
+        void globalOpt(); // reassign module membership for global constraint
 
     private:
 
