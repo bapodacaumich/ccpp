@@ -66,7 +66,6 @@ set(RRTZ_SOURCES
 )
 
 set(SOURCES
-    ${CMAKE_SOURCE_DIR}/src/cone_camera.cpp
     ${CMAKE_SOURCE_DIR}/src/cost_matrix.cpp
     ${CMAKE_SOURCE_DIR}/src/cuda_kernels.cu
     ${CMAKE_SOURCE_DIR}/src/obs.cpp

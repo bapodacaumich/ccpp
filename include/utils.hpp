@@ -3,6 +3,7 @@
 
 #include "node3d_struct.hpp"
 #include "obs.hpp"
+#include "triangle_coverage_struct.hpp"
 #include "triangle_struct.hpp"
 #include "vec3_struct.hpp"
 #include "viewpoint_struct.hpp"
@@ -28,9 +29,10 @@ void loadCubeOBS(std::vector<OBS>& obsVec);
 void loadConvexStationOBS(std::vector<OBS>& obsVec);
 void loadStationOBS(std::vector<OBS>& obsVec);
 void vecToTri(const std::vector<std::vector<std::vector<float>>>& data, std::vector<Triangle>& tris);
+bool allTrue(const std::vector<TriangleCoverage>& arr, size_t module_idx=-1);
 bool allTrue(const std::vector<bool>& arr);
 void numTrue(const std::vector<bool>& arr, size_t& num_true);
-bool allZeroGain(const std::vector<VP_Coverage_Gain>& arr);
+bool allZeroGain(const std::vector<VPCoverageGain>& arr);
 void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Triangle*>& triangles, std::vector<std::vector<bool>>& coverage_map);
 void displayProgressBar(double progress, int width, std::ostringstream& message);
 void getIncidenceAngle(vec3 viewdir, Triangle tri, float& angle);

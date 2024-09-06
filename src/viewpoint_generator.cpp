@@ -1,6 +1,6 @@
-#include "cone_camera.hpp"
 #include "cuda_kernels.h"
 #include "obs.hpp"
+#include "triangle_coverage_struct.hpp"
 #include "utils.hpp"
 #include "viewpoint_coverage_gain_struct.hpp"
 #include "viewpoint_generator.hpp"
@@ -14,7 +14,6 @@
 ViewpointGenerator::ViewpointGenerator() {
     // default constructor -- useless to do this
     this->vgd = 2.0f;
-    this->cam = ConeCamera();
     this->structure = std::vector<OBS>();
     this->unfiltered_viewpoints = std::vector<Viewpoint>();
     this->coverage_viewpoints = std::vector<Viewpoint>();
@@ -29,7 +28,6 @@ ViewpointGenerator::ViewpointGenerator() {
 //     // initialize members
 //     this->structure = structure;
 //     this->vgd = 2.0f;
-//     this->cam = ConeCamera();
 //     this->unfiltered_viewpoints = std::vector<Viewpoint>();
 //     this->coverage_viewpoints = std::vector<Viewpoint>();
 //     this->coverage_map = std::vector<std::vector<bool>>();
@@ -45,7 +43,6 @@ ViewpointGenerator::ViewpointGenerator() {
 //     // initialize members
 //     this->structure = structure;
 //     this->vgd = vgd;
-//     this->cam = ConeCamera();
 //     this->unfiltered_viewpoints = std::vector<Viewpoint>();
 //     this->coverage_viewpoints = std::vector<Viewpoint>();
 //     this->coverage_map = std::vector<std::vector<bool>>();
@@ -57,7 +54,6 @@ ViewpointGenerator::ViewpointGenerator() {
 ViewpointGenerator::ViewpointGenerator(
     std::vector<OBS> structure,
     float vgd,
-    ConeCamera cam,
     float inc_angle_max,
     float inc_improvement_minimum,
     float inc_improvement_threshold
@@ -66,7 +62,6 @@ ViewpointGenerator::ViewpointGenerator(
     // initialize members
     this->structure = structure;
     this->vgd = vgd;
-    this->cam = cam;
     this->inc_angle_max = inc_angle_max;
     this->inc_improvement_threshold = inc_improvement_threshold;
     this->unfiltered_viewpoints = std::vector<Viewpoint>();
@@ -86,12 +81,6 @@ void ViewpointGenerator::initialize() {
     this->countMeshFaces();
     std::cout << "Number of mesh faces=" << this->num_mesh_faces << std::endl;
 
-    // then populate unfiltered_viewpoints
-    std::cout << "Populating Viewpoints..." << std::endl;
-    if (!this->populateViewpoints()) { return; }; // return if no viewpoints were added
-
-    // compute incidence angle between each viewpoint and each face
-    cuda_kernel_inc_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
 }
 
 void ViewpointGenerator::printIncidenceAngles() {
@@ -173,7 +162,7 @@ void ViewpointGenerator::saveUnfilteredViewpoints(std::string& filename) {
 }
 
 void ViewpointGenerator::reassignModuleMembership() {
-    // reassign module membership to four modules
+    // reassign viewpoint module membership to four modules
     std::vector<size_t> module_membership = {0,3,2,3,2,2,2,1,1,3};
     for (size_t i = 0; i < this->unfiltered_viewpoints.size(); i++) {
         if (this->unfiltered_viewpoints[i].module_idx == 2) {
@@ -188,15 +177,41 @@ void ViewpointGenerator::reassignModuleMembership() {
     }
 }
 
-std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints() {
+std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints(bool local) {
     // run greedy algorithm to select viewpoints and put in coverage_viewpoints
-    this->greedy();
+    if (local) {
+        this->remapModuleMembership();
+
+        // then populate unfiltered_viewpoints
+        std::cout << "Populating Viewpoints..." << std::endl;
+        this->populateViewpoints();
+
+        // compute incidence angle between each viewpoint and each face
+        cuda_kernel_inc_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
+
+        for (size_t i = 0; i < 4; i++) {
+            this->greedyModule(i);
+        }
+    } else {
+        // then populate unfiltered_viewpoints
+        std::cout << "Populating Viewpoints..." << std::endl;
+        this->populateViewpoints();
+
+        // compute incidence angle between each viewpoint and each face
+        cuda_kernel_inc_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
+
+        this->greedy();
+    }
     return this->coverage_viewpoints;
 }
 
 void ViewpointGenerator::getFilteredCoverage(std::vector<bool>& filtered_coverage_data) {
     // get filtered coverage map
-    filtered_coverage_data = this->filtered_coverage;
+    // filtered_coverage_data = this->filtered_coverage;
+    filtered_coverage_data.clear();
+    for (size_t i = 0; i < this->triangle_coverage.size(); i++) {
+        filtered_coverage_data.push_back(this->triangle_coverage[i].covered);
+    }
 }
 
 void ViewpointGenerator::missedCoverage() {
@@ -208,10 +223,12 @@ void ViewpointGenerator::missedCoverage() {
         for (size_t face_idx = 0; face_idx < this->num_mesh_faces; face_idx++) {
             // if the viewpoint covers the face and the face is not already covered, increment gain
             if (
-            !(this->filtered_coverage[face_idx]) // face is not covered yet (according to coverage function)
-            && this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx] // viewpoint covers face
-            && this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->inc_angle_max // viewpoint - face incidence angle is within threshold
-            && this->filtered_inc_angles[face_idx] > this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] // improve incidence angle with this viewpoint
+            // !(this->filtered_coverage[face_idx]) // face is not covered yet (according to coverage function)
+            !(this->triangle_coverage[face_idx].covered) // face is not covered yet (according to coverage function)
+            && this->coverage_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] // viewpoint covers face
+            && this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] < this->inc_angle_max // viewpoint - face incidence angle is within threshold
+            // && this->filtered_inc_angles[face_idx] > this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] // improve incidence angle with this viewpoint
+            && this->triangle_coverage[face_idx].best_inc_angle > this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] // improve incidence angle with this viewpoint
             ) { 
                 // std::cout << "Incidence Angle: " << this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] << std::endl;
                 // define gain function here
@@ -221,27 +238,27 @@ void ViewpointGenerator::missedCoverage() {
             }
         }
         // update the marginal gain array (marginal_gain)
-        vpcg_unfiltered[i].gain = gain;
+        this->vpcg_unfiltered[i].gain = gain;
     }
     // all gain should be zero after running algorithm
     float leftover_gain = 0;
-    for (size_t i = 0; i < vpcg_unfiltered.size(); i++) {
-        leftover_gain += vpcg_unfiltered[i].gain;
+    for (size_t i = 0; i < this->vpcg_unfiltered.size(); i++) {
+        leftover_gain += this->vpcg_unfiltered[i].gain;
     }
     std::cout << "Leftover gain=" << leftover_gain << std::endl;
 
     // Examine how many faces are left uncovered:
     size_t num_covered = 0;
-    for (size_t i = 0; i < this->filtered_coverage.size(); i++) {
-        if (this->filtered_coverage[i]) { num_covered++; }
+    for (size_t i = 0; i < this->triangle_coverage.size(); i++) {
+        if (this->triangle_coverage[i].covered) { num_covered++; }
     }
     std::cout << "Number of faces covered with inc angle threshold=" << num_covered << std::endl;
 
     // distribution of incidence angles after rerunning coverage with max inc angle threshold (look at all faces that can be seen)
     num_covered = 0;
     std::cout << "Best Inc Angles: ";
-    for (size_t i = 0; i < this->filtered_inc_angles.size(); i++) {
-        if (this->filtered_inc_angles[i] < std::numeric_limits<float>::max()) {
+    for (size_t i = 0; i < this->triangle_coverage.size(); i++) {
+        if (this->triangle_coverage[i].best_inc_angle < std::numeric_limits<float>::max()) {
             num_covered++;
         }
     }
@@ -268,6 +285,77 @@ void ViewpointGenerator::assignModuleMembership(std::vector<Viewpoint>& viewpoin
     }
 }
 
+void ViewpointGenerator::remapModuleMembership() {
+    // remap module membership to four modules
+    // reassign triangle module membership to four modules
+    std::vector<size_t> module_membership = {0,3,2,3,2,2,2,1,1,3};
+    for (size_t i = 0; i < this->all_faces.size(); i++) {
+        if (this->all_faces[i]->module_idx == 2) {
+            if (this->all_faces[i]->getCentroid().y < 2.85f){
+                this->all_faces[i]->module_idx = 3;
+            } else {
+                this->all_faces[i]->module_idx = 2;
+            }
+        } else {
+            this->all_faces[i]->module_idx = module_membership[this->all_faces[i]->module_idx];
+        }
+        if (this->all_faces[i]->module_idx > 3) {
+            std::cout << "Error: Module Index out of bounds" << std::endl;
+        }
+    }
+}
+
+void ViewpointGenerator::greedyModule(size_t module_idx) {
+    /*
+    * greedy algorithm to select viewpoints from unfiltered_viewpoints
+    * and put into filtered_viewpoints based on coverage
+    */
+    // initialize marginal gain and vector of ordered pointers for each viewpoint
+
+    this->setUpCoverageGain();
+
+    // this->filtered_coverage.clear();
+    // this->filtered_coverage = std::vector<bool>(this->num_mesh_faces, false);
+    // this->filtered_inc_angles.clear();
+    // this->filtered_inc_angles = std::vector<float>(this->num_mesh_faces, std::numeric_limits<float>::max());
+
+    // std::vector<TriangleCoverage> tri_coverage;
+
+    // iterate over number of viewpoints (most time we can add viewpoints to this->coverage_viewpoints)
+    std::cout << "Number of unfiltered viewpoints=" << this->unfiltered_viewpoints.size() << std::endl;
+    for (size_t i = 0; i < this->unfiltered_viewpoints.size(); i++) {
+        // skip viewpoints that don't match module_idx
+        if (this->unfiltered_viewpoints[i].module_idx != module_idx) { continue; }
+
+        // each iteration sort the viewpoint-gain objects
+        this->sortUpdateMarginalGain(module_idx);
+
+        // get viewpoint with maximal gain
+        this->coverage_viewpoints.push_back(this->vpcg_unfiltered.begin()->vp);
+        this->vpcg_filtered.push_back(*(this->vpcg_unfiltered.begin()));
+
+        // remove first element from vpcoveragegains
+        this->vpcg_unfiltered.erase(this->vpcg_unfiltered.begin());
+
+        // update filtered coverage map
+        this->updateCoverage(this->inc_angle_max);
+        this->updateBestIncAngles();
+
+        // check if we have covered all faces
+        if (allTrue(this->triangle_coverage, module_idx) || allZeroGain(this->vpcg_unfiltered)) { break; }
+    }
+    this->sortUpdateMarginalGain(module_idx);
+    size_t num_covered = 0;
+    size_t num_faces = 0;
+    for (size_t i = 0; i < this->triangle_coverage.size(); i++) {
+        if (this->triangle_coverage[i].module_idx == module_idx) {
+            if (this->triangle_coverage[i].covered) { num_covered++; }
+            num_faces++;
+        }
+    }
+    std::cout << "Number of faces covered=" << num_covered << "/" << num_faces << " for Module " << module_idx << std::endl;
+}
+
 void ViewpointGenerator::greedy() {
     /*
     * greedy algorithm to select viewpoints from unfiltered_viewpoints
@@ -277,10 +365,10 @@ void ViewpointGenerator::greedy() {
 
     this->setUpCoverageGain();
 
-    this->filtered_coverage.clear();
-    this->filtered_coverage = std::vector<bool>(this->num_mesh_faces, false);
-    this->filtered_inc_angles.clear();
-    this->filtered_inc_angles = std::vector<float>(this->num_mesh_faces, std::numeric_limits<float>::max());
+    // this->filtered_coverage.clear();
+    // this->filtered_coverage = std::vector<bool>(this->num_mesh_faces, false);
+    // this->filtered_inc_angles.clear();
+    // this->filtered_inc_angles = std::vector<float>(this->num_mesh_faces, std::numeric_limits<float>::max());
 
     // iterate over number of viewpoints (most time we can add viewpoints to this->coverage_viewpoints)
     std::cout << "Number of unfiltered viewpoints=" << this->unfiltered_viewpoints.size() << std::endl;
@@ -292,7 +380,7 @@ void ViewpointGenerator::greedy() {
         this->coverage_viewpoints.push_back(this->vpcg_unfiltered.begin()->vp);
         this->vpcg_filtered.push_back(*(this->vpcg_unfiltered.begin()));
 
-        // remove first element from vp_coverage_gains
+        // remove first element from vpcoveragegains
         this->vpcg_unfiltered.erase(this->vpcg_unfiltered.begin());
 
         // update filtered coverage map
@@ -300,73 +388,85 @@ void ViewpointGenerator::greedy() {
         this->updateBestIncAngles();
 
         // check if we have covered all faces
-        if (allTrue(this->filtered_coverage) || allZeroGain(this->vpcg_unfiltered)) { break; }
+        if (allTrue(this->triangle_coverage) || allZeroGain(this->vpcg_unfiltered)) { break; }
     }
     this->sortUpdateMarginalGain();
     size_t num_covered = 0;
-    for (size_t i = 0; i < this->filtered_coverage.size(); i++) {
-        if (this->filtered_coverage[i]) { num_covered++; }
+    for (size_t i = 0; i < this->triangle_coverage.size(); i++) {
+        if (this->triangle_coverage[i].covered) { num_covered++; }
     }
-    std::cout << "Number of faces covered=" << num_covered << "/" << this->num_mesh_faces << " or " << filtered_coverage.size() << std::endl;
+    std::cout << "Number of faces covered=" << num_covered << "/" << this->num_mesh_faces << std::endl;
 }
 
-void ViewpointGenerator::sortUpdateMarginalGain() {
+void ViewpointGenerator::sortUpdateMarginalGain(size_t module_idx) {
 
     // update marginal gain as we search for the maximal element
     for (size_t i = 0; i < this->vpcg_unfiltered.size(); i++) {
         float gain = 0;
-        for (size_t face_idx = 0; face_idx < this->num_mesh_faces; face_idx++) {
-            // if the viewpoint covers the face and the face is not already covered, increment gain
-            if (
-            !(this->filtered_coverage[face_idx]) // face is not covered yet (according to coverage function)
-            && this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx] // viewpoint covers face
-            ) {
-            if ( this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->inc_angle_max // viewpoint - face incidence angle is within threshold
-            ) {
-                // float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
-                // bool covered = this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx];
-                // std::cout << "Incidence Angle: " << inc_unfiltered << " Covered: " << covered << std::endl;
-                // && this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->filtered_inc_angles[face_idx] // improve incidence angle with this viewpoint
-                // ) { 
-                if ( this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->filtered_inc_angles[face_idx] ) { // improve incidence angle with this viewpoint
-                    // std::cout << "Incidence Angle: " << this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] << std::endl;
-                    // define gain function here
-                    // 1 is added to avoid division by zero and normalize best incidence angle to gain = 1
-                    float inc_best = this->filtered_inc_angles[face_idx];
-                    float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
-                    float inc_improve = inc_best - inc_unfiltered;
-                    float inc_improve_thresh = 0.0f;
-                    if (inc_best < this->inc_improvement_minimum) {
-                        inc_improve_thresh = this->inc_improvement_threshold;
-                    }
 
-                    if (inc_improve > inc_improve_thresh) {
-                        gain += 1/(inc_improve + 1);
+        if (this->vpcg_unfiltered[i].vp.module_idx == module_idx
+            || module_idx == -1) {
+            for (size_t face_idx = 0; face_idx < this->num_mesh_faces; face_idx++) {
+
+                // check if the face applies to this module
+                if ( this->all_faces[face_idx]->module_idx == module_idx
+                    || module_idx == -1) {
+                    // if the viewpoint covers the face and the face is not already covered, increment gain
+                    if (
+                    // !(this->filtered_coverage[face_idx]) // face is not covered yet (according to coverage function)
+                    !(this->triangle_coverage[face_idx].covered) // face is not covered yet (according to coverage function)
+                    && this->coverage_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] // viewpoint covers face
+                    ) {
+                        if ( this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] < this->inc_angle_max // viewpoint - face incidence angle is within threshold
+                        ) {
+                            // float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
+                            // bool covered = this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx];
+                            // std::cout << "Incidence Angle: " << inc_unfiltered << " Covered: " << covered << std::endl;
+                            // && this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] < this->filtered_inc_angles[face_idx] // improve incidence angle with this viewpoint
+                            // ) { 
+                            if ( this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] < this->triangle_coverage[face_idx].best_inc_angle ) { // improve incidence angle with this viewpoint
+                                // std::cout << "Incidence Angle: " << this->inc_angle_map[vpcg_unfiltered[i].vp_map_idx][face_idx] << std::endl;
+                                // define gain function here
+                                // 1 is added to avoid division by zero and normalize best incidence angle to gain = 1
+                                float inc_best = this->triangle_coverage[face_idx].best_inc_angle;
+                                // float inc_best = this->filtered_inc_angles[face_idx];
+                                float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
+                                float inc_improve = inc_best - inc_unfiltered;
+                                float inc_improve_thresh = 0.0f;
+                                if (inc_best < this->inc_improvement_minimum) {
+                                    inc_improve_thresh = this->inc_improvement_threshold;
+                                }
+
+                                if (inc_improve > inc_improve_thresh) {
+                                    gain += 1/(inc_improve + 1);
+                                }
+                                // gain += 1/(this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] + 1);
+                                // gain++;
+                            }
+                        } else {
+                            // float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
+                            // bool covered = this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx];
+                            // std::cout << "Incidence Angle: " << inc_unfiltered << " Covered: " << covered << std::endl;
+                        }
                     }
-                    // gain += 1/(this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx] + 1);
-                    // gain++;
                 }
-            } else {
-                // float inc_unfiltered = this->inc_angle_map[this->vpcg_unfiltered[i].vp_map_idx][face_idx];
-                // bool covered = this->coverage_map[vpcg_unfiltered[i].vp_map_idx][face_idx];
-                // std::cout << "Incidence Angle: " << inc_unfiltered << " Covered: " << covered << std::endl;
-            }
             }
         }
+
         // update the marginal gain array (marginal_gain)
-        vpcg_unfiltered[i].gain = gain;
+        this->vpcg_unfiltered[i].gain = gain;
 
         // check if this is the largest element by comparing it to the next element (except if on last element)
-        if (i < vpcg_unfiltered.size() - 1 && gain >= vpcg_unfiltered[i+1].gain) {
+        if (i < this->vpcg_unfiltered.size() - 1 && gain >= this->vpcg_unfiltered[i+1].gain) {
             break;
         }
     }
 
     // sort the subset of the marginal gain array that still needs to be sorted
     std::sort(
-        vpcg_unfiltered.begin(), 
-        vpcg_unfiltered.end(),
-        [](VP_Coverage_Gain a, VP_Coverage_Gain b) -> bool { 
+        this->vpcg_unfiltered.begin(), 
+        this->vpcg_unfiltered.end(),
+        [](VPCoverageGain a, VPCoverageGain b) -> bool { 
             return a.gain > b.gain;
         }
     );
@@ -379,22 +479,23 @@ void ViewpointGenerator::updateBestIncAngles() {
         float best_inc_angle = std::numeric_limits<float>::max();
         for (size_t j = 0; j < this->vpcg_filtered.size(); j++) {
             // if this mesh face is covered by this viewpoint, save the incidence angle
-            float inc_angle = this->inc_angle_map[vpcg_filtered[j].vp_map_idx][i];
-            if ( this->coverage_map[vpcg_filtered[j].vp_map_idx][i] && inc_angle < best_inc_angle) {
+            float inc_angle = this->inc_angle_map[this->vpcg_filtered[j].vp_map_idx][i];
+            if ( this->coverage_map[this->vpcg_filtered[j].vp_map_idx][i] && inc_angle < best_inc_angle) {
                 best_inc_angle = inc_angle;
             }
         }
-        this->filtered_inc_angles[i] = best_inc_angle;
+        this->triangle_coverage[i].best_inc_angle = best_inc_angle;
+        // this->filtered_inc_angles[i] = best_inc_angle;
     }
 }
 
 void ViewpointGenerator::updateCoverage(float inc_angle_threshold) {
-    // update the filtered coverage map based on viewpoints added to this->coverage_viewpoints
+    // update the triangle coverage array based on this->vpcg_filtered viewpoints
     for (size_t i = 0; i < this->num_mesh_faces; i++) {
         for (size_t j = 0; j < this->vpcg_filtered.size(); j++) {
-            if (this->coverage_map[vpcg_filtered[j].vp_map_idx][i]
-            && this->inc_angle_map[vpcg_filtered[j].vp_map_idx][i] < inc_angle_threshold) {
-                this->filtered_coverage[i] = true;
+            if (this->coverage_map[this->vpcg_filtered[j].vp_map_idx][i]
+            && this->inc_angle_map[this->vpcg_filtered[j].vp_map_idx][i] < inc_angle_threshold) {
+                this->triangle_coverage[i].covered = true;
                 break;
             }
         }
@@ -416,10 +517,10 @@ void ViewpointGenerator::populateCoverage() {
 
 
 void ViewpointGenerator::setUpCoverageGain() {
-    this->vpcg_filtered = std::vector<VP_Coverage_Gain>();
-    this->vpcg_unfiltered = std::vector<VP_Coverage_Gain>();
+    this->vpcg_filtered = std::vector<VPCoverageGain>();
+    this->vpcg_unfiltered = std::vector<VPCoverageGain>();
     for (size_t i = 0; i < this->coverage_map.size(); i++) {
-        VP_Coverage_Gain vpcg;
+        VPCoverageGain vpcg;
         vpcg.vp = this->unfiltered_viewpoints[i];
         vpcg.gain = std::numeric_limits<int>::max();
         vpcg.coverage = this->coverage_map[i];
@@ -427,6 +528,12 @@ void ViewpointGenerator::setUpCoverageGain() {
         // incidence angle in radians:
         getIncidenceAngle(this->unfiltered_viewpoints[i].viewdir, *(this->all_faces[i]), vpcg.inc_angle);
         this->vpcg_unfiltered.push_back(vpcg);
+    }
+    this->triangle_coverage = std::vector<TriangleCoverage>(this->num_mesh_faces);
+    for (size_t i = 0; i < this->num_mesh_faces; i++) {
+        this->triangle_coverage[i].covered = false;
+        this->triangle_coverage[i].best_inc_angle = std::numeric_limits<float>::max();
+        this->triangle_coverage[i].module_idx = this->all_faces[i]->module_idx;
     }
 }
 

@@ -1,8 +1,8 @@
 #ifndef VIEWPOINT_GENERATOR_HPP
 #define VIEWPOINT_GENERATOR_HPP
 
-#include "cone_camera.hpp"
 #include "obs.hpp"
+#include "triangle_coverage_struct.hpp"
 #include "viewpoint_coverage_gain_struct.hpp"
 #include "viewpoint_struct.hpp"
 
@@ -21,13 +21,12 @@ class ViewpointGenerator {
         ViewpointGenerator(
             std::vector<OBS> structure,
             float vgd=2.0f,
-            ConeCamera cam=ConeCamera(),
             float inc_angle_max=90.0f * M_PI / 180.0f,
             float inc_improvement_minimum=70.0f * M_PI / 180.0f,
             float inc_improvement_threshold=10.0f * M_PI / 180.0f
         );
 
-        std::vector<Viewpoint> getCoverageViewpoints();
+        std::vector<Viewpoint> getCoverageViewpoints(bool local);
         void printCoverageMap();
 
         // save coverage map so we don't have to regenerate
@@ -40,6 +39,7 @@ class ViewpointGenerator {
         void getFilteredCoverage(std::vector<bool>& filtered_coverage_data);
         void missedCoverage();
         void assignModuleMembership(std::vector<Viewpoint>& viewpoints);
+        void remapModuleMembership();
         void saveUnfilteredViewpoints(std::string& filename);
 
     private:
@@ -48,7 +48,6 @@ class ViewpointGenerator {
         float inc_angle_max;
         float inc_improvement_minimum;
         float inc_improvement_threshold;
-        ConeCamera cam;
         size_t num_mesh_faces;
 
         std::vector<OBS> structure;
@@ -57,8 +56,9 @@ class ViewpointGenerator {
         std::vector<Viewpoint> coverage_viewpoints;
         std::vector<bool> filtered_coverage; // coverage of 'coverage_viewpoints'
         std::vector<float> filtered_inc_angles; // best inc_angles of 'coverage_viewpoints'
-        std::vector<VP_Coverage_Gain> vpcg_unfiltered;
-        std::vector<VP_Coverage_Gain> vpcg_filtered;
+        std::vector<VPCoverageGain> vpcg_unfiltered;
+        std::vector<VPCoverageGain> vpcg_filtered;
+        std::vector<TriangleCoverage> triangle_coverage;
 
         // coverage map
         std::vector<std::vector<bool>> coverage_map; // viewpoints x num_mesh_faces
@@ -72,10 +72,10 @@ class ViewpointGenerator {
         bool populateViewpoints();
         void rotateViewpoint(const Viewpoint& vp, std::vector<Viewpoint>& rotated_viewpoints, float angle);
         void countMeshFaces();
-        void sortUpdateMarginalGain();
+        void sortUpdateMarginalGain(size_t module_idx=-1);
 
         void greedy(); // greedy algorithm to select viewpoints and put in coverage_viewpoints
-
+        void greedyModule(size_t module_idx); // greedy algorithm to select viewpoints and put in coverage_viewpoints based on coverage per module  (local constraint)
 
         // use coverage map and update filtered_coverage
         void updateBestIncAngles();

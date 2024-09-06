@@ -1,6 +1,7 @@
 #include "cuda_kernels.h"
 #include "node3d_struct.hpp"
 #include "obs.hpp"
+#include "triangle_coverage_struct.hpp"
 #include "triangle_struct.hpp"
 #include "utils.hpp"
 #include "vec3_struct.hpp"
@@ -329,6 +330,20 @@ void vecToTri(const std::vector<std::vector<std::vector<float>>>& data, std::vec
     }
 }
 
+bool allTrue(const std::vector<TriangleCoverage>& arr, size_t module_idx) {
+    /*
+    * Check if all elements.covered in an array are true
+    * @param arr: const std::vector<TriangleCoverage>&, input array
+    * @return bool, true if all elements are true
+    */
+    for (size_t i = 0; i < arr.size(); ++i) {
+        if (!arr[i].covered && arr[i].module_idx == module_idx) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool allTrue(const std::vector<bool>& arr) {
     /*
     * Check if all elements in an array are true
@@ -337,7 +352,7 @@ bool allTrue(const std::vector<bool>& arr) {
     * @return bool, true if all elements are true
     */
     for (size_t i = 0; i < arr.size(); ++i) {
-        if (!arr[i]) { 
+        if (!arr[i]) {
             return false; 
         }
     }
@@ -359,14 +374,14 @@ void numTrue(const std::vector<bool>& arr, size_t& num_true) {
     }
 }
 
-bool allZeroGain(const std::vector<VP_Coverage_Gain>& arr) {
+bool allZeroGain(const std::vector<VPCoverageGain>& arr) {
     /*
     * Check if all elements.gain in an array are zero
-    * @param arr: const std::vector<VP_Coverage_Gain>&, input array
+    * @param arr: const std::vector<VPCoverageGain>&, input array
     * @param all_zero: bool&, output true if all elements are zero
     */
     for (size_t i = 0; i < arr.size(); ++i) {
-        if (arr[i].gain > 0) { 
+        if (arr[i].gain > 0) {
             return false;
         }
     }

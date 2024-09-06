@@ -4,7 +4,7 @@
 #include "viewpoint_struct.hpp"
 #include <vector>
 
-struct VP_Coverage_Gain {
+struct VPCoverageGain {
     Viewpoint vp;
     float gain;
     std::vector<bool> coverage;
