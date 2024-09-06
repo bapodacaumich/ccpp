@@ -6,3 +6,5 @@
 /data/coverage_maps/**
 /data/coverage_maps/*
 /data/coverage_maps/
+/visualization_python/__pycache__/**
+/visualization_python/animation/**
