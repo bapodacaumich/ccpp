@@ -17,7 +17,7 @@ def obs_trisurf(meshes, coverage=None, show=True, surface=True, wireframe=True, 
     highlight_faces = [756,1032] # for debugging purposes
     highlight_faces = []
     # assert num_faces == n_coverage, f'coverage length {n_coverage} does not match number of faces {num_faces}'
-    for mesh in meshes:
+    for module_idx, mesh in enumerate(meshes):
         for face in mesh:
             x = [x[0] for x in face]
             y = [x[1] for x in face]
@@ -36,7 +36,20 @@ def obs_trisurf(meshes, coverage=None, show=True, surface=True, wireframe=True, 
                     else:
                         pc = Poly3DCollection(verts, fc='red', alpha=alph)
             else:
-                pc = Poly3DCollection(verts, fc='tab:blue', alpha=alph)
+                # color faces by module
+                if module_idx == 0: pc = Poly3DCollection(verts, fc='tab:blue', alpha=alph)
+                if module_idx == 1: pc = Poly3DCollection(verts, fc='tab:green', alpha=alph)
+                if module_idx == 2: 
+                    if (y[0] + y[1] + y[2])/3 < 2.85: pc = Poly3DCollection(verts, fc='tab:green', alpha=alph)
+                    else: pc = Poly3DCollection(verts, fc='tab:purple', alpha=alph)
+                if module_idx == 3: pc = Poly3DCollection(verts, fc='tab:green', alpha=alph)
+                if module_idx == 4: pc = Poly3DCollection(verts, fc='tab:purple', alpha=alph)
+                if module_idx == 5: pc = Poly3DCollection(verts, fc='tab:purple', alpha=alph)
+                if module_idx == 6: pc = Poly3DCollection(verts, fc='tab:purple', alpha=alph)
+                if module_idx == 7: pc = Poly3DCollection(verts, fc='tab:orange', alpha=alph)
+                if module_idx == 8: pc = Poly3DCollection(verts, fc='tab:orange', alpha=alph)
+                if module_idx == 9: pc = Poly3DCollection(verts, fc='tab:green', alpha=alph)
+                # pc = Poly3DCollection(verts, fc='tab:blue', alpha=alph)
             if surface: ax.add_collection3d(pc)
             x.append(x[0])
             y.append(y[0])
@@ -91,14 +104,15 @@ def plot_path_direct(folder, file, ax=None):
     # ax.quiver(viewpoints[:,0], viewpoints[:,1], viewpoints[:,2], viewpoints[:,3], viewpoints[:,4], viewpoints[:,5], length=1)
     # weights = np.linspace(0,1,viewpoints.shape[0])
     # weights = viewpoints[:,6] / (np.max(viewpoints[:,6]) + 2) + 1/np.max(viewpoints[:,6])
-    ax.scatter(*[viewpoints[viewpoints[:,6]==0,i] for i in range(3)], c="tab:blue", alpha=0.9, label='Module 0')
-    ax.scatter(*[viewpoints[viewpoints[:,6]==1,i] for i in range(3)], c="tab:orange", alpha=0.9, label='Module 1')
-    ax.scatter(*[viewpoints[viewpoints[:,6]==2,i] for i in range(3)], c="tab:purple", alpha=0.9, label='Module 2')
-    ax.scatter(*[viewpoints[viewpoints[:,6]==3,i] for i in range(3)], c="tab:green", alpha=0.9, label='Module 3')
-    weights = np.ones(viewpoints.shape[0])
+    ss = 4
+    ax.scatter(*[viewpoints[viewpoints[:,6]==0,i] for i in range(3)], c="tab:blue", alpha=0.9, label='Module 0', s=ss)
+    ax.scatter(*[viewpoints[viewpoints[:,6]==1,i] for i in range(3)], c="tab:orange", alpha=0.9, label='Module 1', s=ss)
+    ax.scatter(*[viewpoints[viewpoints[:,6]==2,i] for i in range(3)], c="tab:purple", alpha=0.9, label='Module 2', s=ss)
+    ax.scatter(*[viewpoints[viewpoints[:,6]==3,i] for i in range(3)], c="tab:green", alpha=0.9, label='Module 3', s=ss)
+    # weights = np.ones(viewpoints.shape[0])
     # sc = ax.scatter(*[viewpoints[:,i] for i in range(3)], c=weights, cmap='YlOrBr', alpha=0.9)
     # sc = ax.scatter(*[viewpoints[:,i] for i in range(3)], c=weights, cmap='hsv', alpha=0.9)
-    ax.quiver(*[viewpoints[:,i] for i in range(6)], length=0.2)
+    ax.quiver(*[viewpoints[:,i] for i in range(6)], length=0.3)
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
@@ -106,6 +120,13 @@ def plot_path_direct(folder, file, ax=None):
     ax.legend()
     # plt.colorbar(sc, shrink=0.5, pad=-0.04, label='Path Progression')
     return ax
+
+def save_animation(ax, folder):
+    if not os.path.exists(folder): os.mkdir(folder)
+    for i in range(360):
+        print('\r', f'Generating frame {i:03d}', end='')
+        ax.view_init(elev=10, azim=i)
+        plt.savefig(f'./{folder}/{i:03d}.png', dpi=300)
 
 def set_aspect_equal_3d(axes):
     # get aspect ratios
