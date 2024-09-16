@@ -307,7 +307,6 @@ void loadStationOBS(std::vector<OBS>& obsVec) {
 
         // convert flat data to triangle objects
         std::vector<Triangle> tris;
-        std::cout << "Module " << i << ": ";
         convertFlatToTriangle(tri_data, tris, i);
         OBS obs = OBS(tris);
         obsVec.push_back(obs);
@@ -344,6 +343,20 @@ bool allTrue(const std::vector<TriangleCoverage>& arr, size_t module_idx) {
     return true;
 }
 
+bool allTrue(const std::vector<TriangleCoverage>& arr) {
+    /*
+    * Check if all elements.covered in an array are true
+    * @param arr: const std::vector<TriangleCoverage>&, input array
+    * @return bool, true if all elements are true
+    */
+    for (size_t i = 0; i < arr.size(); ++i) {
+        if (!arr[i].covered) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool allTrue(const std::vector<bool>& arr) {
     /*
     * Check if all elements in an array are true
@@ -351,6 +364,7 @@ bool allTrue(const std::vector<bool>& arr) {
     * @param len: size_t, length of array
     * @return bool, true if all elements are true
     */
+    std::cout << "Checking all true, no moduleidx" << std::endl;
     for (size_t i = 0; i < arr.size(); ++i) {
         if (!arr[i]) {
             return false; 

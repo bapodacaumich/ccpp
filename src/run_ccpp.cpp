@@ -17,13 +17,13 @@ int main(int argc, char** argv) {
     // argv is an array of strings containing the arguments
 
     // check for correct number of arguments
-    if (argc != 1 && argc != 2) {
-        std::cout << "Usage: ./run_ccpp or ./run_ccpp vgd" << std::endl;
+    if (argc != 1 && argc != 2 && argc != 3) {
+        std::cout << "Usage: ./run_ccpp or ./run_ccpp vgd or ./run_ccpp vgd -l" << std::endl;
         return 1;
     }
 
     float vgd = 4.0f;
-    if (argc == 2) {
+    if (argc >= 2) {
         std::cout << "Running with VGD=" << argv[1] << std::endl;
         vgd = std::stof(argv[1]);
     }
@@ -110,9 +110,15 @@ int main(int argc, char** argv) {
         viewpoint_data_save.push_back(vp_data);
     }
     if (local) {
-        saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv", viewpoint_data_save);
+        std::string save_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv";
+        std::cout << "Saving viewpoint data to: " << save_file << std::endl;
+        saveCSV(save_file, viewpoint_data_save);
+        // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv", viewpoint_data_save);
     } else {
-        saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv", viewpoint_data_save);
+        std::string save_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv";
+        std::cout << "Saving viewpoint data to: " << save_file << std::endl;
+        saveCSV(save_file, viewpoint_data_save);
+        // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv", viewpoint_data_save);
     }
 
     // save bool vector of final coverage of mesh faces
@@ -126,9 +132,15 @@ int main(int argc, char** argv) {
         final_coverage_data.push_back(coverage_data);
     }
     if (local) {
-        saveCSV("../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_local_coverage.csv", final_coverage_data);
+        std::string save_file = "../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_local_coverage.csv";
+        std::cout << "Saving final coverage data to: " << save_file << std::endl;
+        saveCSV(save_file, final_coverage_data);
+        // saveCSV("../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_local_coverage.csv", final_coverage_data);
     } else {
-        saveCSV("../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_global_coverage.csv", final_coverage_data);
+        std::string save_file = "../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_global_coverage.csv";
+        std::cout << "Saving final coverage data to: " << save_file << std::endl;
+        saveCSV(save_file, final_coverage_data);
+        // saveCSV("../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_global_coverage.csv", final_coverage_data);
     }
     std::cout << "NUM VIEWPOINTS: " << coverage_viewpoints.size() << std::endl;
 
