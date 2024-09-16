@@ -162,42 +162,39 @@ int main(int argc, char** argv) {
     CostMatrix cm(rrtz_iter);
     std::cout << "loading viewpoints" << std::endl;
     std::string viewpoint_file;
-    if (local) {
-        viewpoint_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv";
-    } else {
-        viewpoint_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv";
-    }
+
     cm.loadViewpoints(
-        viewpoint_file,
+        "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_vp_set.csv",
         start
     );
 
-    // GENERATING
-    std::cout << "generating paths" << std::endl;
-    cm.generatePathMatrix();
-    std::cout << "saving path matrix" << std::endl;
-    cm.savePathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_path_matrix.csv");
-    std::cout << "saving simple cost matrix" << std::endl;
-    cm.saveSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_simple_cost_matrix.csv");
-    std::cout << "generating cost matrix" << std::endl;
-    cm.generateCostMatrix();
-    std::cout << "saving cost matrix" << std::endl;
-    cm.saveCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_cost_matrix.csv");
+    // // GENERATING
+    // std::cout << "generating paths" << std::endl;
+    // cm.generatePathMatrix();
+    // std::cout << "saving path matrix" << std::endl;
+    // cm.savePathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_path_matrix.csv");
+    // std::cout << "saving simple cost matrix" << std::endl;
+    // cm.saveSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_simple_cost_matrix.csv");
+    // std::cout << "generating cost matrix" << std::endl;
+    // cm.generateCostMatrix();
+    // std::cout << "saving cost matrix" << std::endl;
+    // cm.saveCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_cost_matrix.csv");
 
-    // // LOADING
-    // std::cout << "loading path matrix" << std::endl;
-    // cm.loadPathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_path_matrix.csv");
-    // std::cout << "loading simple cost matrix" << std::endl;
-    // cm.loadSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_simple_cost_matrix.csv");
-    // std::cout << "loading cost matrix" << std::endl;
-    // cm.loadCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_cost_matrix.csv");
+    // LOADING
+    std::cout << "loading path matrix" << std::endl;
+    cm.loadPathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_path_matrix.csv");
+    std::cout << "loading simple cost matrix" << std::endl;
+    cm.loadSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_simple_cost_matrix.csv");
+    std::cout << "loading cost matrix" << std::endl;
+    cm.loadCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_cost_matrix.csv");
 
     // TSP tsp(cm);
     std::cout << "creating TSP object" << std::endl;
     TSP tsp(cm);
-    if (local) {
-        tsp.reassignModuleMembership();
-    } else {
+    // if (local) {
+    //     tsp.reassignModuleMembership();
+    // } else {
+    if (!local) {
         tsp.globalOpt();
     }
     tsp.greedyInit();
@@ -218,9 +215,15 @@ int main(int argc, char** argv) {
 
     // save path
     if (local) {
-        saveCSV("../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m_local.csv", path);
+        std::string save_file = "../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m_local.csv";
+        std::cout << "Saving path to: " << save_file << std::endl;
+        saveCSV(save_file, path);
+        // saveCSV("../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m_local.csv", path);
     } else {
-        saveCSV("../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m_global.csv", path);
+        std::string save_file = "../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m_global.csv";
+        std::cout << "Saving path to: " << save_file << std::endl;
+        saveCSV(save_file, path);
+        // saveCSV("../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m_global.csv", path);
     }
 
     return 0;
