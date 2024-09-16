@@ -7,15 +7,16 @@ import numpy as np
 
 def plotpath():
     vgd = '2m'
-    # ax = visualize_station(coverage_file='coverage_' + vgd + '_coverage.csv')
-    ax = visualize_station(coverage_file=None)
-    ax = plot_path_direct('unfiltered_viewpoints', 'unfiltered_viewpoints_' + vgd + '.csv', ax=ax)
+    ax = visualize_station(coverage_file= vgd + '_global_coverage.csv')
+    # ax = visualize_station(coverage_file=None)
+    # ax = plot_path_direct('unfiltered_viewpoints', 'unfiltered_viewpoints_' + vgd + '.csv', ax=ax)
+    ax = plot_path_direct('coverage_viewpoint_sets', 'coverage_' + vgd + '_global_vp_set.csv', ax=ax)
     # ax.set_xlabel('X')
     # ax.set_ylabel('Y')
     # ax.set_zlabel('Z')
     # ax = plot_path_direct('ordered_viewpoints', vgd + '.csv', ax=ax)
     # plt.savefig('4m_unfiltered.png', dpi=300)
-    save_animation(ax, '2m_unfiltered')
+    # save_animation(ax, '2m_unfiltered')
 
     # debug coverage
     # vp0 = np.array([0.574084,6.236693,6.799296, 0.489475,0.033094,-0.871389])
@@ -38,7 +39,7 @@ def plotpath():
     # ax.set_xlabel('X')
     # ax.set_ylabel('Y')
     # ax.set_zlabel('Z')
-    # plt.show()
+    plt.show()
 
 if __name__ == "__main__":
     plotpath()
