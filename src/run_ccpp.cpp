@@ -36,179 +36,192 @@ int main(int argc, char** argv) {
         std::cout << "Running with global" << std::endl;
     }
 
-    std::vector<OBS> obsVec;
-    loadStationOBS(obsVec);
-
-    // // std::vector<OBS> obsVec;
-    // // // load in cube data and convert to triangles
-    // // std::vector<std::vector<std::vector<float>>> cubeData;
-    // // loadCube(cubeData);
-    // // std::vector<Triangle> triCubeFaces;
-    // // vecToTri(cubeData, triCubeFaces);
-
-    // // // create obstacle
-    // // OBS obs = OBS(triCubeFaces);
-    // // obsVec.push_back(obs);
-
-    ViewpointGenerator vg(obsVec, vgd);
-    // std::string unfiltered_vp_file = "unfiltered_viewpoints_" + std::to_string(static_cast<int>(vgd)) + "m.csv";
-    // vg.saveUnfilteredViewpoints(unfiltered_vp_file);
-    std::string save_file = "station_remeshed_coverage_" + std::to_string(static_cast<int>(vgd)) + "m.csv";
-
-    // // // save coverage map
-    // // vg.populateCoverage();
-    // // vg.saveCoverageMap(save_file);
-
-    // load coverage map
-    std::cout << "Loading coverage map" << std::endl;
-    vg.loadCoverageMap(save_file);
-    // std::vector<std::vector<float>> coverage_viewpoints_data;
-    // loadCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_vp_set.csv", coverage_viewpoints_data, 7, ',');
-    // std::vector<Viewpoint> coverage_viewpoints;
-    // for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
-    //     coverage_viewpoints.push_back(Viewpoint(
-    //         vec3(coverage_viewpoints_data[i][0], coverage_viewpoints_data[i][1], coverage_viewpoints_data[i][2]),
-    //         vec3(coverage_viewpoints_data[i][3], coverage_viewpoints_data[i][4], coverage_viewpoints_data[i][5]),
-    //         coverage_viewpoints_data[i][6]
-    //     ));
-    // }
-    // std::cout << "coverage viewpoints length: " << coverage_viewpoints_data.size() << std::endl; 
-    // std::cout << "assigning module membership" << std::endl;
-    // vg.assignModuleMembership(coverage_viewpoints);
-    // coverage_viewpoints_data.clear();
-    // for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
-    //     std::vector<float> row;
-    //     row.push_back(coverage_viewpoints[i].pose.x);
-    //     row.push_back(coverage_viewpoints[i].pose.y);
-    //     row.push_back(coverage_viewpoints[i].pose.z);
-    //     row.push_back(coverage_viewpoints[i].viewdir.x);
-    //     row.push_back(coverage_viewpoints[i].viewdir.y);
-    //     row.push_back(coverage_viewpoints[i].viewdir.z);
-    //     row.push_back(coverage_viewpoints[i].module_idx);
-    //     coverage_viewpoints_data.push_back(row);
-    // }
-
-    // for (size_t i = 0; i < coverage_viewpoints_data.size(); i++) {
-    //     for (size_t j = 0; j < coverage_viewpoints_data[i].size(); j++) {
-    //         std::cout << coverage_viewpoints_data[i][j] << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
-
-    std::cout << "Running Greedy.." << std::endl;
-    std::vector<Viewpoint> coverage_viewpoints = vg.getCoverageViewpoints(local);
-    std::vector<std::vector<float>> viewpoint_data_save;
-    for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
-        std::vector<float> vp_data;
-        vp_data.push_back(coverage_viewpoints[i].pose.x);
-        vp_data.push_back(coverage_viewpoints[i].pose.y);
-        vp_data.push_back(coverage_viewpoints[i].pose.z);
-        vp_data.push_back(coverage_viewpoints[i].viewdir.x);
-        vp_data.push_back(coverage_viewpoints[i].viewdir.y);
-        vp_data.push_back(coverage_viewpoints[i].viewdir.z);
-        vp_data.push_back(coverage_viewpoints[i].module_idx);
-        viewpoint_data_save.push_back(vp_data);
-    }
+    std::string locality_str;
     if (local) {
-        std::string save_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv";
-        std::cout << "Saving viewpoint data to: " << save_file << std::endl;
-        saveCSV(save_file, viewpoint_data_save);
-        // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv", viewpoint_data_save);
+        locality_str = "local";
     } else {
-        std::string save_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv";
-        std::cout << "Saving viewpoint data to: " << save_file << std::endl;
-        saveCSV(save_file, viewpoint_data_save);
-        // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv", viewpoint_data_save);
+        locality_str = "global";
     }
 
-    // save bool vector of final coverage of mesh faces
-    std::vector<bool> final_coverage;
-    vg.getFilteredCoverage(final_coverage);
-    vg.missedCoverage();
-    std::vector<std::vector<float>> final_coverage_data;
-    for (size_t i = 0; i < final_coverage.size(); i++) {
-        std::vector<float> coverage_data;
-        coverage_data.push_back(final_coverage[i]);
-        final_coverage_data.push_back(coverage_data);
-    }
-    if (local) {
-        std::string save_file = "../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_local_coverage.csv";
-        std::cout << "Saving final coverage data to: " << save_file << std::endl;
-        saveCSV(save_file, final_coverage_data);
-        // saveCSV("../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_local_coverage.csv", final_coverage_data);
-    } else {
-        std::string save_file = "../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_global_coverage.csv";
-        std::cout << "Saving final coverage data to: " << save_file << std::endl;
-        saveCSV(save_file, final_coverage_data);
-        // saveCSV("../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_global_coverage.csv", final_coverage_data);
-    }
-    std::cout << "NUM VIEWPOINTS: " << coverage_viewpoints.size() << std::endl;
+    // std::vector<OBS> obsVec;
+    // loadStationOBS(obsVec);
 
-    std::cout << "\n-----------------Coverage Viewpoints-----------------\n";
-    for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
-        std::cout << "Viewpoint " << i << ": pose=" << coverage_viewpoints[i].pose.toString() << " viewdir=" << coverage_viewpoints[i].viewdir.toString() << std::endl;
-    }
+    // // // std::vector<OBS> obsVec;
+    // // // // load in cube data and convert to triangles
+    // // // std::vector<std::vector<std::vector<float>>> cubeData;
+    // // // loadCube(cubeData);
+    // // // std::vector<Triangle> triCubeFaces;
+    // // // vecToTri(cubeData, triCubeFaces);
+
+    // // // // create obstacle
+    // // // OBS obs = OBS(triCubeFaces);
+    // // // obsVec.push_back(obs);
+
+    // ViewpointGenerator vg(obsVec, vgd);
+    // // std::string unfiltered_vp_file = "unfiltered_viewpoints_" + std::to_string(static_cast<int>(vgd)) + "m.csv";
+    // // vg.saveUnfilteredViewpoints(unfiltered_vp_file);
+    // std::string save_file = "station_remeshed_coverage_" + std::to_string(static_cast<int>(vgd)) + "m.csv";
+
+    // // // // save coverage map
+    // // // vg.populateCoverage();
+    // // // vg.saveCoverageMap(save_file);
+
+    // // load coverage map
+    // std::cout << "Loading coverage map" << std::endl;
+    // vg.loadCoverageMap(save_file);
+    // // std::vector<std::vector<float>> coverage_viewpoints_data;
+    // // loadCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_vp_set.csv", coverage_viewpoints_data, 7, ',');
+    // // std::vector<Viewpoint> coverage_viewpoints;
+    // // for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
+    // //     coverage_viewpoints.push_back(Viewpoint(
+    // //         vec3(coverage_viewpoints_data[i][0], coverage_viewpoints_data[i][1], coverage_viewpoints_data[i][2]),
+    // //         vec3(coverage_viewpoints_data[i][3], coverage_viewpoints_data[i][4], coverage_viewpoints_data[i][5]),
+    // //         coverage_viewpoints_data[i][6]
+    // //     ));
+    // // }
+    // // std::cout << "coverage viewpoints length: " << coverage_viewpoints_data.size() << std::endl; 
+    // // std::cout << "assigning module membership" << std::endl;
+    // // vg.assignModuleMembership(coverage_viewpoints);
+    // // coverage_viewpoints_data.clear();
+    // // for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
+    // //     std::vector<float> row;
+    // //     row.push_back(coverage_viewpoints[i].pose.x);
+    // //     row.push_back(coverage_viewpoints[i].pose.y);
+    // //     row.push_back(coverage_viewpoints[i].pose.z);
+    // //     row.push_back(coverage_viewpoints[i].viewdir.x);
+    // //     row.push_back(coverage_viewpoints[i].viewdir.y);
+    // //     row.push_back(coverage_viewpoints[i].viewdir.z);
+    // //     row.push_back(coverage_viewpoints[i].module_idx);
+    // //     coverage_viewpoints_data.push_back(row);
+    // // }
+
+    // // for (size_t i = 0; i < coverage_viewpoints_data.size(); i++) {
+    // //     for (size_t j = 0; j < coverage_viewpoints_data[i].size(); j++) {
+    // //         std::cout << coverage_viewpoints_data[i][j] << " ";
+    // //     }
+    // //     std::cout << std::endl;
+    // // }
+
+    // std::cout << "Running Greedy.." << std::endl;
+    // std::vector<Viewpoint> coverage_viewpoints = vg.getCoverageViewpoints(local);
+    // std::vector<std::vector<float>> viewpoint_data_save;
+    // for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
+    //     std::vector<float> vp_data;
+    //     vp_data.push_back(coverage_viewpoints[i].pose.x);
+    //     vp_data.push_back(coverage_viewpoints[i].pose.y);
+    //     vp_data.push_back(coverage_viewpoints[i].pose.z);
+    //     vp_data.push_back(coverage_viewpoints[i].viewdir.x);
+    //     vp_data.push_back(coverage_viewpoints[i].viewdir.y);
+    //     vp_data.push_back(coverage_viewpoints[i].viewdir.z);
+    //     vp_data.push_back(coverage_viewpoints[i].module_idx);
+    //     viewpoint_data_save.push_back(vp_data);
+    // }
+    // if (local) {
+    //     std::string save_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv";
+    //     std::cout << "Saving viewpoint data to: " << save_file << std::endl;
+    //     saveCSV(save_file, viewpoint_data_save);
+    //     // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv", viewpoint_data_save);
+    // } else {
+    //     std::string save_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv";
+    //     std::cout << "Saving viewpoint data to: " << save_file << std::endl;
+    //     saveCSV(save_file, viewpoint_data_save);
+    //     // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv", viewpoint_data_save);
+    // }
+
+    // // save bool vector of final coverage of mesh faces
+    // std::vector<bool> final_coverage;
+    // vg.getFilteredCoverage(final_coverage);
+    // vg.missedCoverage();
+    // std::vector<std::vector<float>> final_coverage_data;
+    // for (size_t i = 0; i < final_coverage.size(); i++) {
+    //     std::vector<float> coverage_data;
+    //     coverage_data.push_back(final_coverage[i]);
+    //     final_coverage_data.push_back(coverage_data);
+    // }
+    // if (local) {
+    //     std::string save_file = "../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_local_coverage.csv";
+    //     std::cout << "Saving final coverage data to: " << save_file << std::endl;
+    //     saveCSV(save_file, final_coverage_data);
+    //     // saveCSV("../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_local_coverage.csv", final_coverage_data);
+    // } else {
+    //     std::string save_file = "../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_global_coverage.csv";
+    //     std::cout << "Saving final coverage data to: " << save_file << std::endl;
+    //     saveCSV(save_file, final_coverage_data);
+    //     // saveCSV("../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_global_coverage.csv", final_coverage_data);
+    // }
+    // std::cout << "NUM VIEWPOINTS: " << coverage_viewpoints.size() << std::endl;
+
+    // std::cout << "\n-----------------Coverage Viewpoints-----------------\n";
+    // for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
+    //     std::cout << "Viewpoint " << i << ": pose=" << coverage_viewpoints[i].pose.toString() << " viewdir=" << coverage_viewpoints[i].viewdir.toString() << std::endl;
+    // }
 
     // Compute cost matrix for travelling salesman problem for all viewpoints
-    // Viewpoint start = Viewpoint( vec3(1.8f, 4.7f, 2.7f), vec3(0.0f, 0.0f, -1.0f), 2);
-    // size_t rrtz_iter = 2000;
-    // CostMatrix cm(rrtz_iter);
-    // std::cout << "loading viewpoints" << std::endl;
-    // cm.loadViewpoints(
-    //     "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_vp_set.csv",
-    //     start
-    // );
+    Viewpoint start = Viewpoint( vec3(1.8f, 4.7f, 2.7f), vec3(0.0f, 0.0f, -1.0f), 2);
+    size_t rrtz_iter = 2000;
+    CostMatrix cm(rrtz_iter);
+    std::cout << "loading viewpoints" << std::endl;
+    std::string viewpoint_file;
+    if (local) {
+        viewpoint_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv";
+    } else {
+        viewpoint_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv";
+    }
+    cm.loadViewpoints(
+        viewpoint_file,
+        start
+    );
 
-    // // // GENERATING
-    // // std::cout << "generating paths" << std::endl;
-    // // cm.generatePathMatrix();
-    // // std::cout << "saving path matrix" << std::endl;
-    // // cm.savePathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_path_matrix.csv");
-    // // std::cout << "saving simple cost matrix" << std::endl;
-    // // cm.saveSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_simple_cost_matrix.csv");
-    // // std::cout << "generating cost matrix" << std::endl;
-    // // cm.generateCostMatrix();
-    // // std::cout << "saving cost matrix" << std::endl;
-    // // cm.saveCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_cost_matrix.csv");
+    // GENERATING
+    std::cout << "generating paths" << std::endl;
+    cm.generatePathMatrix();
+    std::cout << "saving path matrix" << std::endl;
+    cm.savePathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_path_matrix.csv");
+    std::cout << "saving simple cost matrix" << std::endl;
+    cm.saveSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_simple_cost_matrix.csv");
+    std::cout << "generating cost matrix" << std::endl;
+    cm.generateCostMatrix();
+    std::cout << "saving cost matrix" << std::endl;
+    cm.saveCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_cost_matrix.csv");
 
     // // LOADING
     // std::cout << "loading path matrix" << std::endl;
-    // cm.loadPathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_path_matrix.csv");
+    // cm.loadPathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_path_matrix.csv");
     // std::cout << "loading simple cost matrix" << std::endl;
-    // cm.loadSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_simple_cost_matrix.csv");
+    // cm.loadSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_simple_cost_matrix.csv");
     // std::cout << "loading cost matrix" << std::endl;
-    // cm.loadCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_cost_matrix.csv");
+    // cm.loadCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_cost_matrix.csv");
 
-    // // TSP tsp(cm);
-    // std::cout << "creating TSP object" << std::endl;
     // TSP tsp(cm);
-    // if (local) {
-    //     tsp.reassignModuleMembership();
-    // } else {
-    //     tsp.globalOpt();
-    // }
-    // tsp.greedyInit();
-    // tsp.twoOpt();
+    std::cout << "creating TSP object" << std::endl;
+    TSP tsp(cm);
+    if (local) {
+        tsp.reassignModuleMembership();
+    } else {
+        tsp.globalOpt();
+    }
+    tsp.greedyInit();
+    tsp.twoOpt();
     
-    // // get path
-    // std::vector<std::vector<float>> path;
-    // tsp.getPath(path);
+    // get path
+    std::vector<std::vector<float>> path;
+    tsp.getPath(path);
 
-    // // view path
-    // std::cout << "Path:" << std::endl;
-    // for (size_t i = 0; i < path.size(); i++) {
-    //     for (size_t j = 0; j < path[i].size(); j++) {
-    //         std::cout << std::to_string(path[i][j]) << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
+    // view path
+    std::cout << "Path:" << std::endl;
+    for (size_t i = 0; i < path.size(); i++) {
+        for (size_t j = 0; j < path[i].size(); j++) {
+            std::cout << std::to_string(path[i][j]) << " ";
+        }
+        std::cout << std::endl;
+    }
 
-    // // save path
-    // if (local) {
-    //     saveCSV("../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m_local.csv", path);
-    // } else {
-    //     saveCSV("../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m_global.csv", path);
-    // }
+    // save path
+    if (local) {
+        saveCSV("../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m_local.csv", path);
+    } else {
+        saveCSV("../data/ordered_viewpoints/" + std::to_string(static_cast<int>(vgd)) + "m_global.csv", path);
+    }
 
     return 0;
 }
