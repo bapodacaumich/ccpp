@@ -12,6 +12,7 @@ class CostMatrix {
         CostMatrix(size_t rrtz_iterations);
         void generateCostMatrix();
         void generatePathMatrix();
+        void generatePathMatrixParallel();
         void loadViewpoints(std::string filename, Viewpoint start);
         void loadSimpleCostMatrix(std::string filename);
         void saveSimpleCostMatrix(std::string filename);
@@ -39,7 +40,9 @@ class CostMatrix {
 
         // (n, n, pathlength) matrix (symmetric) paths from viewpoint i to j.
         std::vector<std::vector<std::vector<vec3>>> path_matrix;
-
+    private:
+    float speed = 0.2f; // speed of the agent for CW computations
+    float cw_cost(vec3 start, vec3 end); // compute cost to oppose CW disturbance from start to end at speed.
 };
 
 #endif // COST_MATRIX_HPP

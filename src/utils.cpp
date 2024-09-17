@@ -1,6 +1,8 @@
 #include "cuda_kernels.h"
+#include "limit_struct.hpp"
 #include "node3d_struct.hpp"
 #include "obs.hpp"
+#include "rrtz.hpp"
 #include "triangle_coverage_struct.hpp"
 #include "triangle_struct.hpp"
 #include "utils.hpp"

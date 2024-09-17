@@ -6,10 +6,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <execution>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <stddef.h>
+#include <thread>
 #include <vector>
 
 
@@ -46,6 +48,124 @@ void CostMatrix::generateCostMatrix() {
                             heading_change(last_dir, next_dir);
                     }
                 }
+            }
+        }
+    }
+}
+
+void CostMatrix::generatePathMatrixParallel() {
+    // generate the path matrix from the viewpoints
+
+    // empty matrices
+    this->path_matrix.clear();
+    this->path_matrix.resize(this->n_vp, std::vector<std::vector<vec3>>(this->n_vp));
+    this->simple_cost_matrix.clear();
+    this->simple_cost_matrix.resize(this->n_vp, std::vector<float>(this->n_vp, INFINITY));
+
+
+    // set wide limits
+    Limit limits = { -5.0f, 10.0f, -5.0f, 15.0f, -5.0f, 10.0f };
+
+    // load obstacles
+    std::vector<OBS> obsVec;
+    loadConvexStationOBS(obsVec);
+
+    struct RRTZArgs {
+        vec3 start;
+        vec3 goal;
+        std::vector<OBS> *obsvec_ptr;
+        size_t rrtz_iterations;
+        Limit limits;
+        std::vector<vec3> *path_ptr;
+        float *cost_ptr;
+    };
+
+    std::vector<RRTZArgs> rrtz_args_par;
+    for (size_t vp_idx0 = 0; vp_idx0 < this->n_vp; vp_idx0++) {
+        for (size_t vp_idx1 = 0; vp_idx1 < this->n_vp; vp_idx1++) {
+            if (vp_idx0 == vp_idx1 || vp_idx0 > vp_idx1) { continue; }
+            RRTZArgs rrtz_args;
+            rrtz_args.start = this->viewpoints[vp_idx0].pose;
+            rrtz_args.goal = this->viewpoints[vp_idx1].pose;
+            rrtz_args.obsvec_ptr = &obsVec;
+            rrtz_args.rrtz_iterations = this->rrtz_iterations;
+            rrtz_args.limits = limits;
+            rrtz_args.path_ptr = &(this->path_matrix[vp_idx0][vp_idx1]);
+            rrtz_args.cost_ptr = &(this->simple_cost_matrix[vp_idx0][vp_idx1]);
+            rrtz_args_par.push_back(rrtz_args);
+        }
+    }
+
+    std::for_each(
+        std::execution::par,
+        rrtz_args_par.begin(),
+        rrtz_args_par.end(),
+        [](RRTZArgs& args) {
+            RRTZ rrtz = RRTZ(args.start, args.goal, *args.obsvec_ptr, args.limits, args.rrtz_iterations);
+            std::vector<vec3> path;
+            if (rrtz.run(path)) {
+                *args.path_ptr = path;
+                *args.cost_ptr = rrtz.getBestCost();
+            }
+        }
+    );
+
+
+    // ****************** TIMING CODE ******************
+    // std::ostringstream message;
+    // auto start = std::chrono::high_resolution_clock::now();
+    // auto now = std::chrono::high_resolution_clock::now();
+    // ****************** TIMING CODE ******************
+
+    for (size_t vp_idx0 = 0; vp_idx0 < this->n_vp; vp_idx0++) {
+        for (size_t vp_idx1 = 0; vp_idx1 < this->n_vp; vp_idx1++) {
+            // ****************** TIMING CODE ******************
+            // // auto prev_now = now;
+            // now = std::chrono::high_resolution_clock::now();
+            // // Calculate the duration
+            // std::chrono::duration<double> duration = now - start;
+            // double time_taken = duration.count();
+
+            // // Output the duration in seconds
+            // size_t leftinrow = this->n_vp - vp_idx1;
+            // size_t leftincol = this->n_vp - vp_idx0;
+            // size_t itemsleft = leftinrow + leftincol * leftincol / 2;
+            // size_t totalitems = (this->n_vp + 1) * (this->n_vp + 1) / 2;
+
+            // double avg_loop_period = time_taken / (totalitems - itemsleft);
+            // double seconds_remaining = avg_loop_period * (itemsleft);
+            // double minutes_remaining = seconds_remaining / 60.0;
+            // seconds_remaining = std::fmod(seconds_remaining, 60.0);
+            // message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
+            // double progress = 1.0 - static_cast<double>(itemsleft) / static_cast<double>((this->n_vp + 1) * (this->n_vp + 1) / 2);
+            // displayProgressBar(progress, 50, message);
+            // message.str("");
+            // ****************** TIMING CODE ******************
+
+
+            // if the viewpoints are the same, add empty path and infinite cost to matrix
+            if (vp_idx0 == vp_idx1) { continue; }
+
+            if (vp_idx0 > vp_idx1) { 
+                // get reverse path for flipped viewpoints (We already planned this path in reverse)
+                std::vector<vec3> path = this->path_matrix[vp_idx1][vp_idx0];
+                std::reverse(path.begin(), path.end());
+                this->path_matrix[vp_idx0][vp_idx1] = path;
+                this->simple_cost_matrix[vp_idx0][vp_idx1] = this->simple_cost_matrix[vp_idx1][vp_idx0];
+            // } else {
+            //     // setup and run rrtz
+            //     std::vector<vec3> path;
+            //     vec3 start = this->viewpoints[vp_idx0].pose;
+            //     vec3 goal = this->viewpoints[vp_idx1].pose;
+            //     RRTZ rrtz = RRTZ(start, goal, obsVec, limits, this->rrtz_iterations);
+            //     if (rrtz.run(path)) {
+            //         // if rrtz runs, add path and path cost to matrix
+            //         this->path_matrix[vp_idx0][vp_idx1] = path;
+            //         this->simple_cost_matrix[vp_idx0][vp_idx1] = rrtz.getBestCost();
+            //     // } else {
+            //     //     // if rrtz fails, print error message (already has empty path and infinite cost)
+            //     //     std::cout << "Failed to find path from " << this->viewpoints[vp_idx0].toString() << " to " << this->viewpoints[vp_idx1].toString() << std::endl;
+            //     }
             }
         }
     }
@@ -280,4 +400,8 @@ std::vector<vec3> CostMatrix::getPath(size_t i, size_t j) {
     }
 
     return this->path_matrix[i][j];
+}
+
+float cw_cost(vec3 start, vec3 end) {
+    // compute cost to oppose CW disturbance from start to end at speed.
 }
