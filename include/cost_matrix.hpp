@@ -42,7 +42,8 @@ class CostMatrix {
         std::vector<std::vector<std::vector<vec3>>> path_matrix;
     private:
     float speed = 0.2f; // speed of the agent for CW computations
-    float cw_cost(vec3 start, vec3 end); // compute cost to oppose CW disturbance from start to end at speed.
+    float totalCost(std::vector<vec3> path); // compute total cost of a path
+    float CWCost(vec3 start, vec3 end, size_t n); // compute cost to oppose CW disturbance from start to end at speed.
 };
 
 #endif // COST_MATRIX_HPP

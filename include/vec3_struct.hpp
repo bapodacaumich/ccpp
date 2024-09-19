@@ -46,6 +46,30 @@ class vec3 {
         CUDA_HOSTDEV inline vec3 operator/(const float& f) const {
             return vec3(this->x / f, this->y / f, this->z / f);
         }
+        CUDA_HOSTDEV inline vec3 operator+=(const float& a) {
+            this->x += a;
+            this->y += a;
+            this->z += a;
+            return *this;
+        }
+        CUDA_HOSTDEV inline vec3 operator-=(const float& a) {
+            this->x -= a;
+            this->y -= a;
+            this->z -= a;
+            return *this;
+        }
+        CUDA_HOSTDEV inline vec3 operator*=(const float& a) {
+            this->x *= a;
+            this->y *= a;
+            this->z *= a;
+            return *this;
+        }
+        CUDA_HOSTDEV inline vec3 operator/=(const float& a) {
+            this->x /= a;
+            this->y /= a;
+            this->z /= a;
+            return *this;
+        }
         CUDA_HOSTDEV inline vec3 operator+=(const vec3& v) {
             this->x += v.x;
             this->y += v.y;

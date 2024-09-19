@@ -5,7 +5,9 @@
 #include "utils.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <cmath>
 #include <execution>
 #include <iostream>
 #include <sstream>
@@ -68,7 +70,7 @@ void CostMatrix::generatePathMatrixParallel() {
 
     // load obstacles
     std::vector<OBS> obsVec;
-    loadConvexStationOBS(obsVec);
+    loadConvexStationOBS(obsVec, 4); // default scale 4
 
     struct RRTZArgs {
         vec3 start;
@@ -78,8 +80,12 @@ void CostMatrix::generatePathMatrixParallel() {
         Limit limits;
         std::vector<vec3> *path_ptr;
         float *cost_ptr;
+        std::atomic<size_t> *progress_ptr;
     };
 
+    std::atomic<size_t> progress(0);
+
+    std::cout << "Setting up Parallel arguments" << std::endl;
     std::vector<RRTZArgs> rrtz_args_par;
     for (size_t vp_idx0 = 0; vp_idx0 < this->n_vp; vp_idx0++) {
         for (size_t vp_idx1 = 0; vp_idx1 < this->n_vp; vp_idx1++) {
@@ -92,21 +98,34 @@ void CostMatrix::generatePathMatrixParallel() {
             rrtz_args.limits = limits;
             rrtz_args.path_ptr = &(this->path_matrix[vp_idx0][vp_idx1]);
             rrtz_args.cost_ptr = &(this->simple_cost_matrix[vp_idx0][vp_idx1]);
+            rrtz_args.progress_ptr = &progress;
             rrtz_args_par.push_back(rrtz_args);
         }
     }
 
+    // std::thread progress_thread(print_progress, std::ref(progress), rrtz_args_par.size());
+
+    std::cout << "Number of RRTZ calls: " << rrtz_args_par.size() << std::endl;
+    size_t n_calls = rrtz_args_par.size();
+    std::cout << "Running RRTZ in parallel" << std::endl;
+    std::cout << std::endl;
     std::for_each(
         std::execution::par,
         rrtz_args_par.begin(),
         rrtz_args_par.end(),
-        [](RRTZArgs& args) {
+        [n_calls](RRTZArgs& args) {
+            args.progress_ptr->fetch_add(1, std::memory_order_relaxed);
+            double progress = static_cast<double>(args.progress_ptr->load()) / static_cast<double>(n_calls);
+            std::ostringstream message;
+            std::cout << progress * 100 << "% " << " [" << args.progress_ptr->load() << "/" << n_calls << "]: start=" << args.start.toString() << " | goal=" << args.goal.toString() << std::endl << std::flush;
             RRTZ rrtz = RRTZ(args.start, args.goal, *args.obsvec_ptr, args.limits, args.rrtz_iterations);
             std::vector<vec3> path;
             if (rrtz.run(path)) {
                 *args.path_ptr = path;
                 *args.cost_ptr = rrtz.getBestCost();
             }
+            // displayProgressBar(progress, 50, message);
+            // std::cout << "\rProgress: " << static_cast<double>(args.progress_ptr->load()) / static_cast<double>(n_calls) * 100 << "%                      |" << std::flush;
         }
     );
 
@@ -186,9 +205,10 @@ void CostMatrix::generatePathMatrix() {
 
     // load obstacles
     std::vector<OBS> obsVec;
-    loadConvexStationOBS(obsVec);
+    loadConvexStationOBS(obsVec, 4);
 
 
+    size_t iters(0);
     std::ostringstream message;
     auto start = std::chrono::high_resolution_clock::now();
     auto now = std::chrono::high_resolution_clock::now();
@@ -212,6 +232,8 @@ void CostMatrix::generatePathMatrix() {
             seconds_remaining = std::fmod(seconds_remaining, 60.0);
             message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
             double progress = 1.0 - static_cast<double>(itemsleft) / static_cast<double>((this->n_vp + 1) * (this->n_vp + 1) / 2);
+            message.str("");
+            message << " [" << iters << "/" << (this->n_vp + 1) * (this->n_vp + 1) / 2 << "]";
             displayProgressBar(progress, 50, message);
             message.str("");
             // if the viewpoints are the same, add empty path and infinite cost to matrix
@@ -224,11 +246,12 @@ void CostMatrix::generatePathMatrix() {
                 this->path_matrix[vp_idx0][vp_idx1] = path;
                 this->simple_cost_matrix[vp_idx0][vp_idx1] = this->simple_cost_matrix[vp_idx1][vp_idx0];
             } else {
+                iters++;
                 // setup and run rrtz
                 std::vector<vec3> path;
                 vec3 start = this->viewpoints[vp_idx0].pose;
                 vec3 goal = this->viewpoints[vp_idx1].pose;
-                RRTZ rrtz = RRTZ(start, goal, obsVec, limits, this->rrtz_iterations);
+                RRTZ rrtz = RRTZ(start, goal, obsVec, limits, this->rrtz_iterations, true);
                 if (rrtz.run(path)) {
                     // if rrtz runs, add path and path cost to matrix
                     this->path_matrix[vp_idx0][vp_idx1] = path;
@@ -402,6 +425,22 @@ std::vector<vec3> CostMatrix::getPath(size_t i, size_t j) {
     return this->path_matrix[i][j];
 }
 
-float cw_cost(vec3 start, vec3 end) {
-    // compute cost to oppose CW disturbance from start to end at speed.
+float CostMatrix::totalCost(std::vector<vec3> path) {
+    // compute the total cost of a path
+    size_t N = 10; // discretization
+
+    std::vector<vec3> acceleration;
+    float cost = 0.0f;
+    for (size_t i = 0; i < path.size() - 1; i++) {
+
+        if (i != 0) {
+            // if not first segment, compute acceleration between segments
+            float dt = (path[i] - path[i - 1]).norm() / this->speed / N; // time to travel between discretization points
+            vec3 v0 = path[i] - path[i - 1];
+            vec3 v1 = path[i + 1] - path[i];
+            fuel_cost(path[i], v0, v1, this->speed, dt);
+        }
+        cost += cw_cost(path[i], path[i + 1], this->speed, N);
+    }
+    return cost;
 }

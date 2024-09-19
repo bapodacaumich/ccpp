@@ -13,7 +13,7 @@ bool solveStation(vec3 start, vec3 goal, std::vector<vec3>& path, size_t max_nod
 
     Limit limits = { -5.0f, 10.0f, -5.0f, 15.0f, -5.0f, 10.0f };
     std::vector<OBS> obsVec;
-    loadConvexStationOBS(obsVec);
+    loadConvexStationOBS(obsVec, 4.0f);
 
     std::cout << "Planning rrtz" << std::endl;
     RRTZ rrtz = RRTZ(start, goal, obsVec, limits, max_nodes);

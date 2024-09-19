@@ -70,7 +70,7 @@ bool RRTZ::run(std::vector<vec3>& path) {
         float r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
         float cost = std::numeric_limits<float>::infinity();
 
-        if (this->debug) { std::cout << "\rIteration=" << this->tree_nodes.size() << " | Failed Iterations=" << num_failed_iterations << std::flush; }
+        // if (this->debug) { std::cout << "\rIteration=" << this->tree_nodes.size() << " | Failed Iterations=" << num_failed_iterations << std::flush; }
 
         if (r < 0.5 && this->tree_nodes.size() > 1) { 
             // extend to goal
@@ -91,7 +91,13 @@ bool RRTZ::run(std::vector<vec3>& path) {
                         std::cout << std::endl;
                     }
                 }
-            } else { num_failed_iterations++; }
+            } else { 
+                num_failed_iterations++; 
+                if (num_failed_iterations > 100) {
+                    std::cout << num_failed_iterations << " failed iterations. quitting" << std::endl;
+                    return false;
+                }
+            }
         } else {
             // extend to random plane
             bool success = false;

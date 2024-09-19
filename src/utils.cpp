@@ -10,6 +10,7 @@
 #include "viewpoint_struct.hpp"
 #include "viewpoint_coverage_gain_struct.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -18,6 +19,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 bool ray_int_plane(Node3D node, Plane plane, float eps, vec3& intPoint) {
@@ -257,7 +259,7 @@ void loadCubeOBS(std::vector<OBS>& obsVec) {
     obsVec.push_back(OBS(triCubeFaces));
 }
 
-void loadConvexStationOBS(std::vector<OBS>& obsVec) {
+void loadConvexStationOBS(std::vector<OBS>& obsVec, float scale) {
     /*
     * instantiate station into obstacle objects
     * @param obsVec: std::vector<OBS>, output data
@@ -279,11 +281,17 @@ void loadConvexStationOBS(std::vector<OBS>& obsVec) {
 
         vec3 offset = vec3(2.529f, 4.821, 2.591);
 
+        // change offset to reflect center of gravity
+        offset -= vec3(2.92199515f, 5.14701097f, 2.63653781f);
+
         for (size_t j = 0; j < tris.size(); j++) {
             tris[j].n = tris[j].n / tris[j].n.norm();
             tris[j].a += offset;
             tris[j].b += offset;
             tris[j].c += offset;
+            tris[j].a *= scale;
+            tris[j].b *= scale;
+            tris[j].c *= scale;
         }
 
         OBS obs = OBS(tris);
@@ -291,7 +299,7 @@ void loadConvexStationOBS(std::vector<OBS>& obsVec) {
     }
 }
 
-void loadStationOBS(std::vector<OBS>& obsVec) {
+void loadStationOBS(std::vector<OBS>& obsVec, float scale) {
     /*
     * instantiate station into obstacle objects
     * @param obsVec: std::vector<OBS>, output data
@@ -310,6 +318,20 @@ void loadStationOBS(std::vector<OBS>& obsVec) {
         // convert flat data to triangle objects
         std::vector<Triangle> tris;
         convertFlatToTriangle(tri_data, tris, i);
+
+        // change offset to reflect center of gravity
+        vec3 offset = vec3(2.92199515f, 5.14701097f, 2.63653781f) * -1;
+
+        for (size_t j = 0; j < tris.size(); j++) {
+            tris[j].n = tris[j].n / tris[j].n.norm();
+            tris[j].a += offset;
+            tris[j].b += offset;
+            tris[j].c += offset;
+            tris[j].a *= scale;
+            tris[j].b *= scale;
+            tris[j].c *= scale;
+        }
+
         OBS obs = OBS(tris);
         obsVec.push_back(obs);
     }
@@ -508,4 +530,89 @@ void pinhole_camera_test(
 
     visible = false;
     return;
+}
+
+void cw_acceleration(vec3& acceleration, vec3 point, vec3 velocity) {
+    // compute cost to oppose CW disturbance from start to end at speed.
+    // n = number of discretization steps to take -- inclusive
+
+    // this->speed;
+    float mu = 3.986e14; // gravitational parameter
+    float a = 6.6e3; // semi-major axis
+    float n = std::sqrt(mu / (a * a * a)); // orbital rate 
+    float g0 = 9.80665; // standard gravity
+    float m = 5; // mass of the spacecraft - 5 kg
+    float Isp = 80; // specific impulse
+
+    std::vector<vec3> displacement;
+
+    // compute drift acceleration
+    acceleration.x = 3 * n * n * point.x + 2 * n * velocity.y;
+    acceleration.y = -2 * n * velocity.x;
+    acceleration.z = -1 * n * n * point.z;
+
+    // // compute cost
+    // float impulse = 0;
+    // float dt = (end - start).norm() / speed / (N - 1);
+    // for (size_t i = 0; i < N; i++) {
+    //     impulse += acceleration[i].norm() * std::sqrt(dt);
+    // }
+
+    // float cost = impulse * m / (g0 * Isp);
+
+    // return cost;
+}
+
+float cw_cost(vec3 start, vec3 end, float speed, size_t N) {
+    // compute cost to oppose CW disturbance from start to end at speed.
+    // n = number of discretization steps to take -- inclusive
+
+    float mu = 3.986e14; // gravitational parameter
+    float a = 6.6e3; // semi-major axis
+    float n = std::sqrt(mu / (a * a * a)); // orbital rate 
+    float g0 = 9.80665; // standard gravity
+    float m = 5; // mass of the spacecraft - 5 kg
+    float Isp = 80; // specific impulse
+
+    std::vector<vec3> displacement;
+    vec3 velocity = (end - start) / (end - start).norm() * speed;
+    std::vector<vec3> acceleration;
+
+    // calculate the displacement vector
+    for (size_t i = 0; i < N; i++) {
+        float t = static_cast<float>(i) / static_cast<float>(N);
+        vec3 point = start * (1 - t) + end * t;
+        displacement.push_back(point);
+    }
+
+    // compute drift acceleration
+    for (size_t i = 0; i < N; i++) {
+        vec3 acc;
+        acc.x = 3 * n * n * displacement[i].x + 2 * n * velocity.y;
+        acc.y = -2 * n * velocity.x;
+        acc.z = -1 * n * n * displacement[i].z;
+        acceleration.push_back(acc);
+    }
+
+    // compute cost
+    float impulse = 0;
+    float dt = (end - start).norm() / speed / (N);
+    for (size_t i = 0; i < N; i++) {
+        impulse += acceleration[i].norm() * std::sqrt(dt);
+    }
+
+    float cost = impulse * m / (g0 * Isp);
+
+    return cost;
+}
+
+float fuel_cost(vec3 pose, vec3 v0, vec3 v1, float speed, float dt) {
+    vec3 cw_acc;
+    cw_acceleration(cw_acc, pose, v0);
+
+    vec3 dv = v1 / v1.norm() - v0 / v0.norm() - cw_acc * dt; // change in velocity
+    float mf = 5;
+    float Isp = 80;
+    float m0 = std::exp(dv.norm() / (9.81 * Isp));
+    return m0 - mf;
 }

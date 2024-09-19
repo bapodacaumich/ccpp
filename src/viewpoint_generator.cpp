@@ -406,12 +406,12 @@ void ViewpointGenerator::sortUpdateMarginalGain(size_t module_idx) {
         float gain = 0;
 
         if (this->vpcg_unfiltered[i].vp.module_idx == module_idx
-            || module_idx == -1) {
+            || module_idx == SIZE_MAX) {
             for (size_t face_idx = 0; face_idx < this->num_mesh_faces; face_idx++) {
 
                 // check if the face applies to this module
                 if ( this->all_faces[face_idx]->module_idx == module_idx
-                    || module_idx == -1) {
+                    || module_idx == SIZE_MAX) {
                     // if the viewpoint covers the face and the face is not already covered, increment gain
                     if (
                     // !(this->filtered_coverage[face_idx]) // face is not covered yet (according to coverage function)

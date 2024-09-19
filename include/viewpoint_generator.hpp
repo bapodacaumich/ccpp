@@ -72,7 +72,7 @@ class ViewpointGenerator {
         bool populateViewpoints();
         void rotateViewpoint(const Viewpoint& vp, std::vector<Viewpoint>& rotated_viewpoints, float angle);
         void countMeshFaces();
-        void sortUpdateMarginalGain(size_t module_idx=-1);
+        void sortUpdateMarginalGain(size_t module_idx=SIZE_MAX);
 
         void greedy(); // greedy algorithm to select viewpoints and put in coverage_viewpoints
         void greedyModule(size_t module_idx); // greedy algorithm to select viewpoints and put in coverage_viewpoints based on coverage per module  (local constraint)

@@ -9,6 +9,7 @@
 #include "viewpoint_struct.hpp"
 #include "viewpoint_coverage_gain_struct.hpp"
 
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -26,8 +27,8 @@ void saveCSV(const std::string& filename, const std::vector<std::vector<float>>&
 void loadCube(std::vector<std::vector<std::vector<float>>>& data, float xs=-1, float xf=1);
 void convertFlatToTriangle(const std::vector<std::vector<float>>& flatData, std::vector<Triangle>& tris, size_t module_idx=0);
 void loadCubeOBS(std::vector<OBS>& obsVec);
-void loadConvexStationOBS(std::vector<OBS>& obsVec);
-void loadStationOBS(std::vector<OBS>& obsVec);
+void loadConvexStationOBS(std::vector<OBS>& obsVec, float scale);
+void loadStationOBS(std::vector<OBS>& obsVec, float scale);
 void vecToTri(const std::vector<std::vector<std::vector<float>>>& data, std::vector<Triangle>& tris);
 bool allTrue(const std::vector<TriangleCoverage>& arr, size_t module_idx);
 bool allTrue(const std::vector<TriangleCoverage>& arr);
@@ -38,5 +39,8 @@ void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Tri
 void displayProgressBar(double progress, int width, std::ostringstream& message);
 void getIncidenceAngle(vec3 viewdir, Triangle tri, float& angle);
 void pinhole_camera_test( bool& visible, vec3 pose, vec3 viewdir, vec3 point, float hfov, float vfov);
+void cw_acceleration(vec3& acceleration, vec3 pose, vec3 velocity);
+float cw_cost(vec3 start, vec3 end, float speed, size_t N);
+float fuel_cost(vec3 pose, vec3 v0, vec3 v1, float speed, float dt);
 
 #endif // UTILS_HPP
