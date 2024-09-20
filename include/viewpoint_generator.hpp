@@ -26,12 +26,12 @@ class ViewpointGenerator {
             float inc_improvement_threshold=10.0f * M_PI / 180.0f
         );
 
-        std::vector<Viewpoint> getCoverageViewpoints(bool local);
+        std::vector<Viewpoint> getCoverageViewpoints(bool local, const std::string& coverage_file, bool compute_coverage);
         void printCoverageMap();
 
         // save coverage map so we don't have to regenerate
-        void saveCoverageMap(std::string& filename);
-        void loadCoverageMap(std::string& filename);
+        void saveCoverageMap(const std::string& filename);
+        void loadCoverageMap(const std::string& filename);
 
         // need to create map of coverage for each viewpoint
         void populateCoverage();

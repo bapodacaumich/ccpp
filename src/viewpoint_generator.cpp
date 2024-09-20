@@ -117,7 +117,7 @@ void ViewpointGenerator::printCoverageMap() {
     std::cout << std::endl;
 }
 
-void ViewpointGenerator::saveCoverageMap(std::string& filename) {
+void ViewpointGenerator::saveCoverageMap(const std::string& filename) {
     // save coverage map to file
     std::vector<std::vector<float>> data;
     for (size_t i = 0; i < this->coverage_map.size(); i++) {
@@ -130,7 +130,7 @@ void ViewpointGenerator::saveCoverageMap(std::string& filename) {
     saveCSV("../data/coverage_maps/" + filename, data);
 }
 
-void ViewpointGenerator::loadCoverageMap(std::string& filename) {
+void ViewpointGenerator::loadCoverageMap(const std::string& filename) {
     // assume right coverage_map - viewpoints - faces are loaded
     // load coverage map from file
     std::vector<std::vector<float>> data;
@@ -178,28 +178,46 @@ void ViewpointGenerator::reassignModuleMembership() {
     }
 }
 
-std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints(bool local) {
+std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints(bool local, const std::string& coverage_file, bool compute_coverage) {
     // run greedy algorithm to select viewpoints and put in coverage_viewpoints
     if (local) {
+        // remap module membership for this->all_faces
         this->remapModuleMembership();
 
         // then populate unfiltered_viewpoints
-        std::cout << "Populating Viewpoints..." << std::endl;
         this->populateViewpoints();
 
         // compute incidence angle between each viewpoint and each face
         cuda_kernel_inc_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
+
+        if (!compute_coverage) {
+            // load coverage map
+            this->loadCoverageMap(coverage_file);
+        } else {
+            // compute coverage map
+            this->populateCoverage();
+            this->saveCoverageMap(coverage_file);
+        }
+
 
         for (size_t i = 0; i < 4; i++) {
             this->greedyModule(i);
         }
     } else {
         // then populate unfiltered_viewpoints
-        std::cout << "Populating Viewpoints..." << std::endl;
         this->populateViewpoints();
 
         // compute incidence angle between each viewpoint and each face
         cuda_kernel_inc_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
+
+        if (!compute_coverage) {
+            // load coverage map
+            this->loadCoverageMap(coverage_file);
+        } else {
+            // compute coverage map
+            this->populateCoverage();
+            this->saveCoverageMap(coverage_file);
+        }
 
         this->greedy();
     }
@@ -514,6 +532,7 @@ void ViewpointGenerator::populateCoverage() {
             }
         }
     }
+    std::cout << std::endl;
 }
 
 

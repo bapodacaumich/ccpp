@@ -434,7 +434,7 @@ void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Tri
     * @param coverage_map: bool**, output coverage map
     */
     std::ostringstream message;
-    auto now = std::chrono::high_resolution_clock::now();
+    auto begin = std::chrono::high_resolution_clock::now();
     for (size_t i = 0; i < viewpoints.size(); ++i) {
         std::vector<bool> coverage;
         cuda_kernel_coverage(viewpoints[i], triangles, coverage, nullptr);
@@ -442,14 +442,13 @@ void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Tri
             coverage[j] = !coverage[j];
         }
         coverage_map.push_back(coverage);
-        auto prev_now = now;
-        now = std::chrono::high_resolution_clock::now();
+        auto now = std::chrono::high_resolution_clock::now();
         // Calculate the duration
-        std::chrono::duration<double> duration = now - prev_now;
-        double loop_period = duration.count();
+        std::chrono::duration<double> duration = now - begin;
+        double period = duration.count();
 
         // Output the duration in seconds
-        double seconds_remaining = loop_period * (viewpoints.size() - i);
+        double seconds_remaining = period * (viewpoints.size() - i) / (i + 1);
         double minutes_remaining = seconds_remaining / 60.0;
         seconds_remaining = std::fmod(seconds_remaining, 60.0);
         message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
