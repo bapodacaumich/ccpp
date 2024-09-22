@@ -255,7 +255,10 @@ void CostMatrix::generatePathMatrix() {
                 if (rrtz.run(path)) {
                     // if rrtz runs, add path and path cost to matrix
                     this->path_matrix[vp_idx0][vp_idx1] = path;
-                    this->simple_cost_matrix[vp_idx0][vp_idx1] = rrtz.getBestCost();
+                    this->simple_cost_matrix[vp_idx0][vp_idx1] = this->totalCost(path); // cost includes CW rejection
+
+                    // // TODO: need to alter this to add cw disturbance
+                    // this->simple_cost_matrix[vp_idx0][vp_idx1] = rrtz.getBestCost();
                 // } else {
                 //     // if rrtz fails, add empty path and infinite cost to matrix
                 //     std::cout << "Failed to find path from " << this->viewpoints[vp_idx0].toString() << " to " << this->viewpoints[vp_idx1].toString() << std::endl;
@@ -427,19 +430,20 @@ std::vector<vec3> CostMatrix::getPath(size_t i, size_t j) {
 
 float CostMatrix::totalCost(std::vector<vec3> path) {
     // compute the total cost of a path
-    size_t N = 10; // discretization
+    size_t N = N_discretization; // discretization
 
     std::vector<vec3> acceleration;
     float cost = 0.0f;
     for (size_t i = 0; i < path.size() - 1; i++) {
 
         if (i != 0) {
-            // if not first segment, compute acceleration between segments
-            float dt = (path[i] - path[i - 1]).norm() / this->speed / N; // time to travel between discretization points
+            // if not first segment, compute impulsive acceleration between segments
+            float dt = (path[i] - path[i - 1]).norm() / this->speed / N; // time to travel between discretization points (just need for clohessy wiltshire)
             vec3 v0 = path[i] - path[i - 1];
             vec3 v1 = path[i + 1] - path[i];
-            fuel_cost(path[i], v0, v1, this->speed, dt);
+            cost += fuel_cost(path[i], v0, v1, this->speed, dt);
         }
+
         cost += cw_cost(path[i], path[i + 1], this->speed, N);
     }
     return cost;

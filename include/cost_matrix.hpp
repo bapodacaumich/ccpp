@@ -41,6 +41,7 @@ class CostMatrix {
         // (n, n, pathlength) matrix (symmetric) paths from viewpoint i to j.
         std::vector<std::vector<std::vector<vec3>>> path_matrix;
     private:
+    size_t N_discretization = 10; // subpath discretization for cost calculations
     float speed = 0.2f; // speed of the agent for CW computations
     float totalCost(std::vector<vec3> path); // compute total cost of a path
     float CWCost(vec3 start, vec3 end, size_t n); // compute cost to oppose CW disturbance from start to end at speed.

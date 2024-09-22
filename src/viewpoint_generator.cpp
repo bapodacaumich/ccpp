@@ -167,7 +167,7 @@ void ViewpointGenerator::reassignModuleMembership() {
     std::vector<size_t> module_membership = {0,3,2,3,2,2,2,1,1,3};
     for (size_t i = 0; i < this->unfiltered_viewpoints.size(); i++) {
         if (this->unfiltered_viewpoints[i].module_idx == 2) {
-            if (this->unfiltered_viewpoints[i].pose.y < 2.85f) {
+            if (this->unfiltered_viewpoints[i].pose.y < -9.0f) {
                 this->unfiltered_viewpoints[i].module_idx = 3;
             } else {
                 this->unfiltered_viewpoints[i].module_idx = 2;
@@ -310,7 +310,7 @@ void ViewpointGenerator::remapModuleMembership() {
     std::vector<size_t> module_membership = {0,3,2,3,2,2,2,1,1,3};
     for (size_t i = 0; i < this->all_faces.size(); i++) {
         if (this->all_faces[i]->module_idx == 2) {
-            if (this->all_faces[i]->getCentroid().y < 2.85f){
+            if (this->all_faces[i]->getCentroid().y < -9.0f){
                 this->all_faces[i]->module_idx = 3;
             } else {
                 this->all_faces[i]->module_idx = 2;
