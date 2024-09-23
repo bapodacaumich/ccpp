@@ -251,7 +251,7 @@ void CostMatrix::generatePathMatrix() {
                 std::vector<vec3> path;
                 vec3 start = this->viewpoints[vp_idx0].pose;
                 vec3 goal = this->viewpoints[vp_idx1].pose;
-                RRTZ rrtz = RRTZ(start, goal, obsVec, limits, this->rrtz_iterations, true);
+                RRTZ rrtz = RRTZ(start, goal, obsVec, limits, this->rrtz_iterations, false);
                 if (rrtz.run(path)) {
                     // if rrtz runs, add path and path cost to matrix
                     this->path_matrix[vp_idx0][vp_idx1] = path;
