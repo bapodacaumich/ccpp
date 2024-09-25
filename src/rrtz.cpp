@@ -75,6 +75,7 @@ bool RRTZ::run(std::vector<vec3>& path) {
         if (r < 0.5 && this->tree_nodes.size() > 1) { 
             // extend to goal
             Plane plane = this->sample_plane(this->goal);
+            num_failed_iterations = 0;
             if (this->extend(plane, cost)) {
                 // success to goal --> save index of this leaf node
                 if (cost < this->best_cost) {
@@ -93,7 +94,7 @@ bool RRTZ::run(std::vector<vec3>& path) {
                 }
             } else { 
                 num_failed_iterations++; 
-                if (num_failed_iterations > 100) {
+                if (num_failed_iterations > 1000) {
                     std::cout << num_failed_iterations << " failed iterations. quitting" << std::endl;
                     return false;
                 }
@@ -101,9 +102,15 @@ bool RRTZ::run(std::vector<vec3>& path) {
         } else {
             // extend to random plane
             bool success = false;
+            num_failed_iterations = 0;
             while (!success) {
                 Plane plane = this->sample_plane();
                 success = this->extend(plane, cost);
+                num_failed_iterations++;
+                if (num_failed_iterations > 1000) {
+                    std::cout << num_failed_iterations << " failed iterations. quitting" << std::endl;
+                    return false;
+                }
             }
         }
     }
@@ -123,7 +130,7 @@ float RRTZ::getBestCost() {
 bool RRTZ::terminate() {
     // TODO: implement convergence criteria condition
     // currently: end at max_iterations
-    return this->tree_nodes.size() >= this->max_nodes;
+    return this->tree_nodes.size() >= this->max_nodes || this->best_cost < 1e-5f;
 }
 
 void RRTZ::reconstruct_path(size_t parent_idx, std::vector<vec3>& path) {

@@ -537,11 +537,11 @@ void cw_acceleration(vec3& acceleration, vec3 point, vec3 velocity) {
 
     // this->speed;
     float mu = 3.986e14; // gravitational parameter
-    float a = 6.6e3; // semi-major axis
+    float a = 6.778137e6; // semi-major axis
     float n = std::sqrt(mu / (a * a * a)); // orbital rate 
-    float g0 = 9.80665; // standard gravity
-    float m = 5; // mass of the spacecraft - 5 kg
-    float Isp = 80; // specific impulse
+    // float g0 = 9.80665; // standard gravity
+    // float m = 5; // mass of the spacecraft - 5 kg
+    // float Isp = 80; // specific impulse
 
     std::vector<vec3> displacement;
 
@@ -567,7 +567,7 @@ float cw_cost(vec3 start, vec3 end, float speed, size_t N) {
     // n = number of discretization steps to take -- inclusive
 
     float mu = 3.986e14; // gravitational parameter
-    float a = 6.6e3; // semi-major axis
+    float a = 6.778137e6; // semi-major axis
     float n = std::sqrt(mu / (a * a * a)); // orbital rate 
     float g0 = 9.80665; // standard gravity
     float m = 5; // mass of the spacecraft - 5 kg
@@ -602,16 +602,28 @@ float cw_cost(vec3 start, vec3 end, float speed, size_t N) {
 
     float cost = impulse * m / (g0 * Isp);
 
+    // Debugging: print CW cost
+    // std::cout << "\ncw_cost=";
+    // std::cout << std::fixed << std::setprecision(9) << cost; // Write value
+    // std::cout << std::endl;
+
     return cost;
 }
 
 float fuel_cost(vec3 pose, vec3 v0, vec3 v1, float speed, float dt) {
-    vec3 cw_acc;
+    // fuel cost to change directions v0 to v1 and oppose CW disturbance for dt
+    vec3 cw_acc = vec3(0.0f, 0.0f, 0.0f);
     cw_acceleration(cw_acc, pose, v0);
 
-    vec3 dv = v1 / v1.norm() - v0 / v0.norm() - cw_acc * dt; // change in velocity
+
+    vec3 dv = v1 - v0 - cw_acc * dt; // change in velocity -- integrate cw_acc over dt
     float mf = 5;
     float Isp = 80;
-    float m0 = std::exp(dv.norm() / (9.81 * Isp));
+    float m0 = mf * std::exp(dv.norm() / (9.81 * Isp));
+
+    // Debugging: print fuel cost
+    // std::cout << "\nfuel_cost=";
+    // std::cout << std::fixed << std::setprecision(9) << m0 - mf; // Write value
+    // std::cout << std::endl;
     return m0 - mf;
 }

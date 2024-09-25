@@ -44,10 +44,14 @@ void CostMatrix::generateCostMatrix() {
                         vec3 next_dir = 
                             this->path_matrix[j][k].at(1) - 
                             this->path_matrix[j][k].at(0);
-                        this->cost_matrix[i][j][k] = 
-                            // this->simple_cost_matrix[i][j] +
+                        // this->cost_matrix[i][j][k] = 
+                        //     // this->simple_cost_matrix[i][j] +
+                        //     this->simple_cost_matrix[j][k] + 
+                        //     heading_change(last_dir, next_dir);
+                        this->cost_matrix[j][k][i] = 
+                            this->simple_cost_matrix[i][j] +
                             this->simple_cost_matrix[j][k] + 
-                            heading_change(last_dir, next_dir);
+                            fuel_cost(this->path_matrix[j][k].at(0), last_dir, next_dir, this->speed, last_dir.norm()/this->speed / this->N_discretization);
                     }
                 }
             }
@@ -207,7 +211,6 @@ void CostMatrix::generatePathMatrix() {
     std::vector<OBS> obsVec;
     loadConvexStationOBS(obsVec, 4);
 
-
     size_t iters(0);
     std::ostringstream message;
     auto start = std::chrono::high_resolution_clock::now();
@@ -230,10 +233,10 @@ void CostMatrix::generatePathMatrix() {
             double seconds_remaining = avg_loop_period * (itemsleft);
             double minutes_remaining = seconds_remaining / 60.0;
             seconds_remaining = std::fmod(seconds_remaining, 60.0);
-            message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
             double progress = 1.0 - static_cast<double>(itemsleft) / static_cast<double>((this->n_vp + 1) * (this->n_vp + 1) / 2);
-            message.str("");
+            // message.str("");
             message << " [" << iters << "/" << (this->n_vp + 1) * (this->n_vp + 1) / 2 << "]";
+            message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
             displayProgressBar(progress, 50, message);
             message.str("");
             // if the viewpoints are the same, add empty path and infinite cost to matrix
@@ -257,11 +260,10 @@ void CostMatrix::generatePathMatrix() {
                     this->path_matrix[vp_idx0][vp_idx1] = path;
                     this->simple_cost_matrix[vp_idx0][vp_idx1] = this->totalCost(path); // cost includes CW rejection
 
-                    // // TODO: need to alter this to add cw disturbance
-                    // this->simple_cost_matrix[vp_idx0][vp_idx1] = rrtz.getBestCost();
-                // } else {
-                //     // if rrtz fails, add empty path and infinite cost to matrix
-                //     std::cout << "Failed to find path from " << this->viewpoints[vp_idx0].toString() << " to " << this->viewpoints[vp_idx1].toString() << std::endl;
+                    // this->simple_cost_matrix[vp_idx0][vp_idx1] = rrtz.getBestCost(); // no CW rejection
+                } else {
+                    // if rrtz fails, add empty path and infinite cost to matrix
+                    std::cout << "Failed to find path from " << this->viewpoints[vp_idx0].pose.toString() << " to " << this->viewpoints[vp_idx1].pose.toString() << std::endl;
                 }
             }
         }

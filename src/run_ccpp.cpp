@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
 
     // Compute cost matrix for travelling salesman problem for all viewpoints
     Viewpoint start = Viewpoint( vec3(1.8f, 4.7f, 2.7f), vec3(0.0f, 0.0f, -1.0f), 2);
-    size_t rrtz_iter = 2000;
+    size_t rrtz_iter = 500;
     CostMatrix cm(rrtz_iter);
     std::cout << "loading viewpoints" << std::endl;
     std::string viewpoint_file;
