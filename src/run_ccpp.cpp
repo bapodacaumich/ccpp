@@ -173,6 +173,14 @@ int main(int argc, char** argv) {
         start
     );
 
+    // // LOADING
+    // std::cout << "loading path matrix" << std::endl;
+    // cm.loadPathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_path_matrix.csv");
+    // std::cout << "loading simple cost matrix" << std::endl;
+    // cm.loadSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_simple_cost_matrix.csv");
+    // std::cout << "loading cost matrix" << std::endl;
+    // cm.loadCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_cost_matrix.csv");
+
     // GENERATING
     std::cout << "generating paths" << std::endl;
     // cm.generatePathMatrixParallel();
@@ -185,14 +193,6 @@ int main(int argc, char** argv) {
     cm.generateCostMatrix();
     std::cout << "saving cost matrix" << std::endl;
     cm.saveCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_cost_matrix.csv");
-
-    // // LOADING
-    // std::cout << "loading path matrix" << std::endl;
-    // cm.loadPathMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_path_matrix.csv");
-    // std::cout << "loading simple cost matrix" << std::endl;
-    // cm.loadSimpleCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_simple_cost_matrix.csv");
-    // std::cout << "loading cost matrix" << std::endl;
-    // cm.loadCostMatrix("../data/tsp/" + std::to_string(static_cast<int>(vgd)) + "m_" + locality_str + "_cost_matrix.csv");
 
     // TSP tsp(cm);
     std::cout << "creating TSP object" << std::endl;

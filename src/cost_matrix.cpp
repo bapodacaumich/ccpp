@@ -48,10 +48,18 @@ void CostMatrix::generateCostMatrix() {
                         //     // this->simple_cost_matrix[i][j] +
                         //     this->simple_cost_matrix[j][k] + 
                         //     heading_change(last_dir, next_dir);
-                        this->cost_matrix[j][k][i] = 
+                        float transition_cost = fuel_cost(this->path_matrix[j][k].at(0), last_dir, next_dir, this->speed, last_dir.norm()/this->speed / this->N_discretization);
+                        // std::cout << "transition_cost=" << transition_cost;
+                        // std::cout << " segment a cost=" << this->simple_cost_matrix[i][j];
+                        // std::cout << " segment b cost=" << this->simple_cost_matrix[i][j] << std::endl;
+                        this->cost_matrix[i][j][k] = 
                             this->simple_cost_matrix[i][j] +
                             this->simple_cost_matrix[j][k] + 
-                            fuel_cost(this->path_matrix[j][k].at(0), last_dir, next_dir, this->speed, last_dir.norm()/this->speed / this->N_discretization);
+                            transition_cost;
+                            // fuel_cost(this->path_matrix[j][k].at(0), last_dir, next_dir, this->speed, last_dir.norm()/this->speed / this->N_discretization);
+                        if (this->cost_matrix[i][j][k] > 1.0f) {
+                            std::cout << "inf cost: " << this->cost_matrix[j][k][i] << std::endl;
+                        }
                     }
                 }
             }
@@ -70,7 +78,7 @@ void CostMatrix::generatePathMatrixParallel() {
 
 
     // set wide limits
-    Limit limits = { -5.0f, 10.0f, -5.0f, 15.0f, -5.0f, 10.0f };
+    Limit limits = { -25.0f, 25.0f, -35.0f, 35.0f, -20.0f, 20.0f };
 
     // load obstacles
     std::vector<OBS> obsVec;
@@ -235,7 +243,7 @@ void CostMatrix::generatePathMatrix() {
             seconds_remaining = std::fmod(seconds_remaining, 60.0);
             double progress = 1.0 - static_cast<double>(itemsleft) / static_cast<double>((this->n_vp + 1) * (this->n_vp + 1) / 2);
             // message.str("");
-            message << " [" << iters << "/" << (this->n_vp + 1) * (this->n_vp + 1) / 2 << "]";
+            message << " [" << iters << "/" << (this->n_vp - 1) * (this->n_vp) / 2 << "]";
             message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
             displayProgressBar(progress, 50, message);
             message.str("");

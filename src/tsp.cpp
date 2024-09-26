@@ -82,7 +82,7 @@ void TSP::greedyInit() {
     //     if (this->nodes.size() == 0) {
     //         break;
     //     }
-        // std::cout << "Nodes left: " << this->nodes.size() << std::endl;
+        std::cout << "Nodes left: " << this->nodes.size() << std::endl;
         for (size_t i = 0; i < this->nodes.size(); i++) {
             std::cout << this->nodes[i].toString() << " ";
         }
@@ -91,6 +91,8 @@ void TSP::greedyInit() {
         float best_cost;
         size_t node_idx;
         size_t idx_to_insert = this->nearest(best_cost, node_idx);
+
+        if (node_idx >= this->nodes.size()) {break;}
 
         std::cout << "Node to insert: " << this->nodes[node_idx].toString() << " at index: " << idx_to_insert << " with cost: " << best_cost << std::endl;
 
@@ -137,7 +139,7 @@ void TSP::twoOpt() {
     // https://en.wikipedia.org/wiki/2-opt
     // https://en.wikipedia.org/wiki/Travelling_salesman_problem
     float best_cost = this->pathCost();
-    float new_cost = 0;
+    float new_cost = best_cost;
 
     std::cout << "Two Opt Cost Improvement" << std::endl << std::endl;
     while (new_cost < best_cost) {
@@ -160,7 +162,7 @@ void TSP::twoOpt() {
                 // if new cost is worse, swap back
                 if (new_cost >= best_cost || !this->checkModuleContinuity()) {
                     std::reverse(it0, it1);
-                    new_cost = best_cost;
+                    new_cost = best_cost; // 'reset' new cost to previous best
                 } else {
                     best_cost = new_cost;
                 }
