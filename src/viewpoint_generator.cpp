@@ -653,7 +653,7 @@ bool ViewpointGenerator::populateViewpoints() {
     cuda_kernel_collision_points(
         sampled_viewpoints,
         this->all_faces,
-        vec3(-30.0f, -30.0f, -30.0f),
+        vec3(1e9f, 1e9f, 1e9f), // needs to be collision free
         in_collision
     );
 
