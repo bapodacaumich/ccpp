@@ -232,21 +232,20 @@ void CostMatrix::generatePathMatrix() {
             double time_taken = duration.count();
 
             // Output the duration in seconds
-            size_t leftinrow = this->n_vp - vp_idx1;
-            size_t leftincol = this->n_vp - vp_idx0;
-            size_t itemsleft = leftinrow + leftincol * leftincol / 2;
-            size_t totalitems = (this->n_vp + 1) * (this->n_vp + 1) / 2;
-
-            double avg_loop_period = time_taken / (totalitems - itemsleft);
-            double seconds_remaining = avg_loop_period * (itemsleft);
+            size_t totalitems = (this->n_vp - 1) * (this->n_vp) / 2;
+            double progress = static_cast<double>(iters) / static_cast<double>((this->n_vp - 1) * (this->n_vp) / 2);
+            double seconds_remaining = (static_cast<double>(totalitems) / static_cast<double>(iters) - 1) * time_taken;
             double minutes_remaining = seconds_remaining / 60.0;
             seconds_remaining = std::fmod(seconds_remaining, 60.0);
-            double progress = 1.0 - static_cast<double>(itemsleft) / static_cast<double>((this->n_vp + 1) * (this->n_vp + 1) / 2);
-            // message.str("");
+
+            // message to put at end of progress bar
             message << " [" << iters << "/" << (this->n_vp - 1) * (this->n_vp) / 2 << "]";
             message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
             displayProgressBar(progress, 50, message);
+
+            // clear message for next iteration
             message.str("");
+
             // if the viewpoints are the same, add empty path and infinite cost to matrix
             if (vp_idx0 == vp_idx1) { continue; }
 
