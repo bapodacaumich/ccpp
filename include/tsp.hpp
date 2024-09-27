@@ -12,7 +12,7 @@ class TSP {
 
         TSP();
         TSP(CostMatrix cm);
-        void loadCM(int vgd, Viewpoint start);
+        void loadCM(int vgd, Viewpoint start, bool vx);
         void greedyInit();
         void twoOpt();
         float pathCost();

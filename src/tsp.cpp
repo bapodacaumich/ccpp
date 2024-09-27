@@ -50,10 +50,11 @@ void TSP::globalOpt() {
     }
 }
 
-void TSP::loadCM(int vgd, Viewpoint start) {
-    std::string viewpoint_file = "../data/coverage_viewpoint_sets/coverage_" + std::to_string(vgd) + "m_vp_set.csv";
-    std::string cost_matrix_file = "../data/tsp/" + std::to_string(vgd) + "m_cost_matrix.csv";
-    std::string path_matrix_file = "../data/tsp/" + std::to_string(vgd) + "m_path_matrix.csv";
+void TSP::loadCM(int vgd, Viewpoint start, bool vx) {
+    std::string vx_str = vx ? "_vx" : "";
+    std::string viewpoint_file = "../data" + vx_str + "/coverage_viewpoint_sets/coverage_" + std::to_string(vgd) + "m_vp_set.csv";
+    std::string cost_matrix_file = "../data" + vx_str + "/tsp/" + std::to_string(vgd) + "m_cost_matrix.csv";
+    std::string path_matrix_file = "../data" + vx_str + "/tsp/" + std::to_string(vgd) + "m_path_matrix.csv";
     this->cm.loadViewpoints(viewpoint_file, start);
     this->cm.loadCostMatrix(cost_matrix_file);
     this->cm.loadPathMatrix(path_matrix_file);

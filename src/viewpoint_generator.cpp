@@ -117,34 +117,43 @@ void ViewpointGenerator::printCoverageMap() {
     std::cout << std::endl;
 }
 
-void ViewpointGenerator::saveCoverageMap(const std::string& filename) {
+void ViewpointGenerator::saveCoverageMap(const std::string& filename, bool vx) {
     // save coverage map to file
-    std::vector<std::vector<float>> data;
-    for (size_t i = 0; i < this->coverage_map.size(); i++) {
-        std::vector<float> row;
-        for (size_t j = 0; j < this->coverage_map[i].size(); j++) {
-            row.push_back(this->coverage_map[i][j] ? 1.0f : 0.0f);
-        }
-        data.push_back(row);
+    // std::vector<std::vector<float>> data;
+    // for (size_t i = 0; i < this->coverage_map.size(); i++) {
+    //     std::vector<float> row;
+    //     for (size_t j = 0; j < this->coverage_map[i].size(); j++) {
+    //         row.push_back(this->coverage_map[i][j] ? 1.0f : 0.0f);
+    //     }
+    //     data.push_back(row);
+    // }
+    if (vx){
+        saveCSVbool("../data_vx/coverage_maps/" + filename, this->coverage_map);
+    } else {
+        saveCSVbool("../data/coverage_maps/" + filename, this->coverage_map);
     }
-    saveCSV("../data/coverage_maps/" + filename, data);
 }
 
-void ViewpointGenerator::loadCoverageMap(const std::string& filename) {
+void ViewpointGenerator::loadCoverageMap(const std::string& filename, bool vx) {
     // assume right coverage_map - viewpoints - faces are loaded
     // load coverage map from file
     std::vector<std::vector<float>> data;
-    loadCSV("../data/coverage_maps/" + filename, data, this->num_mesh_faces);
-    for (size_t i = 0; i < data.size(); i++) {
-        std::vector<bool> row;
-        for (size_t j = 0; j < data[i].size(); j++) {
-            row.push_back(data[i][j] == 1.0f);
+    if (vx) {
+        loadCSVbool("../data_vx/coverage_maps/" + filename, this->coverage_map);
+        // loadCSV("../data_vx/coverage_maps/" + filename, data, this->num_mesh_faces);
+    } else {
+        loadCSV("../data/coverage_maps/" + filename, data, this->num_mesh_faces);
+        for (size_t i = 0; i < data.size(); i++) {
+            std::vector<bool> row;
+            for (size_t j = 0; j < data[i].size(); j++) {
+                row.push_back(data[i][j] == 1.0f);
+            }
+            this->coverage_map.push_back(row);
         }
-        this->coverage_map.push_back(row);
     }
 }
 
-void ViewpointGenerator::saveUnfilteredViewpoints(std::string& filename) {
+void ViewpointGenerator::saveUnfilteredViewpoints(std::string& filename, bool vx) {
     // save unfiltered viewpoints with updated module memberships
     this->reassignModuleMembership();
     std::vector<std::vector<float>> data;
@@ -159,7 +168,11 @@ void ViewpointGenerator::saveUnfilteredViewpoints(std::string& filename) {
         row.push_back(this->unfiltered_viewpoints[i].module_idx);
         data.push_back(row);
     }
-    saveCSV("../data/unfiltered_viewpoints/" + filename, data);
+    if (vx) {
+        saveCSV("../data_vx/unfiltered_viewpoints/" + filename, data);
+    } else {
+        saveCSV("../data/unfiltered_viewpoints/" + filename, data);
+    }
 }
 
 void ViewpointGenerator::reassignModuleMembership() {
@@ -178,7 +191,7 @@ void ViewpointGenerator::reassignModuleMembership() {
     }
 }
 
-std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints(bool local, const std::string& coverage_file, bool compute_coverage) {
+std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints(bool local, const std::string& coverage_file, bool compute_coverage, bool vx) {
     // run greedy algorithm to select viewpoints and put in coverage_viewpoints
     if (local) {
         // remap module membership for this->all_faces
@@ -188,37 +201,46 @@ std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints(bool local, con
         this->populateViewpoints();
 
         // compute incidence angle between each viewpoint and each face
+        std::cout << "Computing Incidence Angles..." << std::endl;
         cuda_kernel_inc_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
+        std::cout << "Incidence Angles Computed" << std::endl;
 
         if (!compute_coverage) {
             // load coverage map
-            this->loadCoverageMap(coverage_file);
+            this->loadCoverageMap(coverage_file, vx);
         } else {
             // compute coverage map
+            std::cout << "Computing Coverage Map..." << std::endl;
             this->populateCoverage();
-            this->saveCoverageMap(coverage_file);
+            this->saveCoverageMap(coverage_file, vx);
         }
 
 
+        std::cout << "Running Greedy Algorithm..." << std::endl;
         for (size_t i = 0; i < 4; i++) {
             this->greedyModule(i);
         }
     } else {
         // then populate unfiltered_viewpoints
+        std::cout << "Populating Viewpoints..." << std::endl;
         this->populateViewpoints();
 
         // compute incidence angle between each viewpoint and each face
+        std::cout << "Computing Incidence Angles..." << std::endl;
         cuda_kernel_inc_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
 
         if (!compute_coverage) {
             // load coverage map
-            this->loadCoverageMap(coverage_file);
+            std::cout << "Loading Coverage Map..." << std::endl;
+            this->loadCoverageMap(coverage_file, vx);
         } else {
             // compute coverage map
+            std::cout << "Computing Coverage Map..." << std::endl;
             this->populateCoverage();
-            this->saveCoverageMap(coverage_file);
+            this->saveCoverageMap(coverage_file, vx);
         }
 
+        std::cout << "Running Greedy Algorithm..." << std::endl;
         this->greedy();
     }
     return this->coverage_viewpoints;
@@ -391,12 +413,14 @@ void ViewpointGenerator::greedy() {
 
     // iterate over number of viewpoints (most time we can add viewpoints to this->coverage_viewpoints)
     std::cout << "Number of unfiltered viewpoints=" << this->unfiltered_viewpoints.size() << std::endl;
+    std::cout << "adding viewpoints: ";
     for (size_t i = 0; i < this->unfiltered_viewpoints.size(); i++) {
         // each iteration sort the viewpoint-gain objects
         this->sortUpdateMarginalGain();
 
         // get viewpoint with maximal gain
         this->coverage_viewpoints.push_back(this->vpcg_unfiltered.begin()->vp);
+        std::cout << this->vpcg_unfiltered.begin()->vp.pose.toString() << " ";
         this->vpcg_filtered.push_back(*(this->vpcg_unfiltered.begin()));
 
         // remove first element from vpcoveragegains

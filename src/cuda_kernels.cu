@@ -180,7 +180,9 @@ __global__ void ray_int_tri(
         return;
     }
     vec3 intPoint = origin + vec * t;
-    int_points[res_idx] = intPoint;
+    if (int_points != nullptr) {
+        int_points[res_idx] = intPoint;
+    }
 
     // check if intersection point is between origin and end
     vec3 vec_dir = vec/vec.norm();
@@ -506,7 +508,10 @@ extern "C" void cuda_kernel_coverage(
     Triangle *tri = new Triangle[n_tri];
     bool *result_arr = new bool[n_tri];
     bool *intersection_arr = new bool[n_ray * n_tri];
-    vec3 *result_int_points = new vec3[n_ray * n_tri];
+    vec3 *result_int_points;
+    if (int_points != nullptr) {
+        result_int_points = new vec3[n_ray * n_tri];
+    }
 
     // thread, block size
     size_t thread_x = 16;
@@ -544,7 +549,11 @@ extern "C" void cuda_kernel_coverage(
     cudaMalloc(&d_tri, n_tri * sizeof(Triangle));
     cudaMalloc(&d_result, n_tri * sizeof(bool));
     cudaMalloc(&d_intersections, n_ray * n_tri * sizeof(bool));
-    cudaMalloc(&d_int_points, n_ray * n_tri * sizeof(vec3));
+    if (int_points != nullptr) {
+        cudaMalloc(&d_int_points, n_ray * n_tri * sizeof(vec3));
+    } else {
+        d_int_points = nullptr;
+    }
 
     // copy data to gpu
     cudaMemcpy(d_ends, ends, n_ray * sizeof(vec3), cudaMemcpyHostToDevice);
@@ -575,7 +584,10 @@ extern "C" void cuda_kernel_coverage(
     collision_or<<<numBlocks, threadsPerBlock>>>(d_result, d_intersections, n_tri, n_tri);
 
     cudaMemcpy(result_arr, d_result, n_tri * sizeof(bool), cudaMemcpyDeviceToHost);
-    cudaMemcpy(result_int_points, d_int_points, n_ray * n_tri * sizeof(vec3), cudaMemcpyDeviceToHost);
+
+    if (int_points != nullptr) {
+        cudaMemcpy(result_int_points, d_int_points, n_ray * n_tri * sizeof(vec3), cudaMemcpyDeviceToHost);
+    }
 
     cudaFree(d_ends);
     cudaFree(d_tri);
@@ -584,8 +596,10 @@ extern "C" void cuda_kernel_coverage(
     cudaFree(d_int_points);
 
     for (size_t vp_idx=0; vp_idx < n_tri; vp_idx++) {
+        if (vp_idx < 100) {std::cout << (result_arr[vp_idx] ? "1" : "0");}
         collisions.push_back(result_arr[vp_idx]);
     }
+    std::cout << std::endl;
 
     if (int_points != nullptr) {
         for (size_t vp_idx = 0; vp_idx < n_tri; vp_idx++) {
@@ -612,7 +626,9 @@ extern "C" void cuda_kernel_coverage(
     delete[] tri;
     delete[] result_arr;
     delete[] intersection_arr;
-    delete[] result_int_points;
+    if (int_points != nullptr) {
+        delete[] result_int_points;
+    }
 }
 
 extern "C" void cuda_kernel_ray_int_plane(

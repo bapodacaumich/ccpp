@@ -177,6 +177,60 @@ bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data,
     return true;
 }
 
+bool loadCSVbool(const std::string& filename, std::vector<std::vector<bool>>& data) {
+    // assume no delimiter
+    std::ifstream file(filename);
+    std::string line;
+
+    if (!file.is_open()) {
+        std::cerr << "Error opening file for reading: " << filename << std::endl;
+        return false;
+    }
+
+    while (std::getline(file, line)) {
+        std::vector<bool> row;
+        for (const auto& c : line) {
+            try {
+                row.push_back(c == '1');
+            } catch (const std::invalid_argument& e) {
+                std::cerr << "Invalid number format: " << c << std::endl;
+                return false;
+            } catch (const std::out_of_range& e) {
+                std::cerr << "Number out of range: " << c << std::endl;
+                return false;
+            }
+        }
+        data.push_back(row);
+    }
+    return true;
+}
+
+void saveCSVbool(const std::string& filename, const std::vector<std::vector<bool>>& data) {
+    /*
+    * Save 2d std::vector float to a csv file
+    * @param filename: std::string, path to save file
+    * @param data: std::vector<std::vector<float>>, data to save
+    */
+
+
+    // Open the file in output mode
+    std::ofstream file(filename);
+    
+    // Check if the file was opened successfully
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return;
+    }
+
+    for (const auto& row : data) {
+        for (const auto& value : row) {
+            file << (value ? "1" : "0"); // Write value
+        }
+        file << "\n"; // End of row
+    }
+    file.close();
+}
+
 void saveCSV(const std::string& filename, const std::vector<std::vector<float>>& data) {
     /*
     * Save 2d std::vector float to a csv file
@@ -337,6 +391,43 @@ void loadStationOBS(std::vector<OBS>& obsVec, float scale) {
     }
 }
 
+
+void loadVxStationOBS(std::vector<OBS>& obsVec, float scale) {
+    /*
+    * instantiate station into obstacle objects
+    * @param obsVec: std::vector<OBS>, output data
+    */
+    std::string model_dir = "../data/model_remeshed/";
+
+    // load triangle mesh data
+    std::string filename = model_dir + "vx_faces_normals.csv"; // 9 length vector
+    std::vector<std::vector<float>> tri_data;
+
+    // each row is a triangle (3 points = 9 numbers) and normals (3 numbers)
+    loadCSV(filename, tri_data, 12, ' ');
+
+    // convert flat data to triangle objects
+    std::vector<Triangle> tris;
+    convertFlatToTriangle(tri_data, tris, 0);
+
+    // change offset to reflect center of gravity
+    // vec3 offset = vec3(2.92199515f, 5.14701097f, 2.63653781f) * -1;
+    vec3 offset = vec3( 0.09087864f,  0.75695956f, -0.10063456f) * -1;
+
+    for (size_t j = 0; j < tris.size(); j++) {
+        tris[j].n = tris[j].n / tris[j].n.norm();
+        tris[j].a += offset;
+        tris[j].b += offset;
+        tris[j].c += offset;
+        tris[j].a *= scale;
+        tris[j].b *= scale;
+        tris[j].c *= scale;
+    }
+
+    OBS obs = OBS(tris);
+    obsVec.push_back(obs);
+}
+
 void vecToTri(const std::vector<std::vector<std::vector<float>>>& data, std::vector<Triangle>& tris) {
     /*
     * Convert a vector of vectors of vectors to a vector of triangles
@@ -435,7 +526,8 @@ void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Tri
     */
     std::ostringstream message;
     auto begin = std::chrono::high_resolution_clock::now();
-    for (size_t i = 0; i < viewpoints.size(); ++i) {
+    // for (size_t i = 0; i < viewpoints.size(); ++i) {
+    for (size_t i = 10000; i < 10100; ++i) {
         std::vector<bool> coverage;
         cuda_kernel_coverage(viewpoints[i], triangles, coverage, nullptr);
         for (size_t j = 0; j < coverage.size(); j++) {
@@ -452,7 +544,7 @@ void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Tri
         double minutes_remaining = seconds_remaining / 60.0;
         seconds_remaining = std::fmod(seconds_remaining, 60.0);
         message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
-        displayProgressBar(static_cast<double>(i) / viewpoints.size(), 150, message);
+        // displayProgressBar(static_cast<double>(i) / viewpoints.size(), 150, message);
         message.str("");
     }
 }
