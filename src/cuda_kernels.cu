@@ -47,7 +47,7 @@ __device__ void pinhole_camera(
 
     // check if point is within field of view
     if (abs(point_proj.dot(u_hat)) < w/2 && abs(point_proj.dot(v_hat)) < h/2) {
-        out_of_frame = false;
+        // out_of_frame = false; // assume initialized to false
         // visible[point_idx] = true;
         return;
     }
@@ -115,7 +115,8 @@ __global__ void ray_int_tri(
     const vec3 viewdir, // vp (vec3)
     const vec3 *ends,    // n_vp (1dim)
     const Triangle *tri, // n_tri (1dim)
-    size_t n_tri
+    size_t n_tri,
+    size_t n_vp
     ) {
     // true for not visiblw
 
@@ -123,13 +124,22 @@ __global__ void ray_int_tri(
     float eps = 1e-6f;
 
     // get indices
-    size_t vp_idx = blockIdx.x * blockDim.x + threadIdx.x; // n_tri
+    size_t vp_idx = blockIdx.x * blockDim.x + threadIdx.x; // n_vp
     size_t tri_idx = blockIdx.y * blockDim.y + threadIdx.y; // n_tri
     size_t tri_pt_idx = blockIdx.z * blockDim.z + threadIdx.z; // 3
     size_t ray_idx = vp_idx * 3 + tri_pt_idx; // n_ray
-    size_t res_idx = tri_pt_idx * n_tri * n_tri + tri_idx * n_tri + vp_idx;
+    size_t res_idx = tri_pt_idx * n_tri * n_vp + tri_idx * n_vp + vp_idx;
 
-    if (vp_idx > n_tri - 1 || tri_idx > n_tri - 1 || tri_pt_idx > 2) { return; }
+    if (vp_idx > n_vp - 1 || tri_idx > n_tri - 1 || tri_pt_idx > 2) { return; }
+
+    if (result[vp_idx] == true) { return; } // already found a collision for this vp-tri pair
+
+    bool out_of_frame = false;
+    pinhole_camera(out_of_frame, origin, viewdir, ends[ray_idx]);
+    if (out_of_frame) {
+        result[vp_idx] = true;
+        return;
+    }
 
 
     // instantiate ray
@@ -137,7 +147,7 @@ __global__ void ray_int_tri(
     vec3 vec = end - origin;
 
     // check if triangle is facing away from camera
-    float norm_dot = tri[tri_idx].n.dot(origin - end);
+    // float norm_dot = tri[tri_idx].n.dot(origin - end);
     // if (norm_dot > 0) {
     //     result[res_idx] = true;
     //     return;
@@ -151,7 +161,7 @@ __global__ void ray_int_tri(
 
     // if ray is parallel to triangle
     if (a > -eps && a < eps) {
-        pinhole_camera(result[res_idx], origin, viewdir, end);
+        // pinhole_camera(result[vp_idx], origin, viewdir, end);
         // result[res_idx] = false;
         return;
     }
@@ -160,14 +170,14 @@ __global__ void ray_int_tri(
     vec3 s = origin - tri[tri_idx].a;
     float u = f * s.dot(h);
     if (u < 0.0f || u > 1.0f) {
-        pinhole_camera(result[res_idx], origin, viewdir, end);
+        // pinhole_camera(result[vp_idx], origin, viewdir, end);
         // result[res_idx] = false;
         return;
     }
     vec3 q = s.cross(e1);
     float v = f * vec.dot(q);
     if (v < 0.0f || u + v > 1.0f) {
-        pinhole_camera(result[res_idx], origin, viewdir, end);
+        // pinhole_camera(result[vp_idx], origin, viewdir, end);
         // result[res_idx] = false;
         return;
     }
@@ -175,7 +185,7 @@ __global__ void ray_int_tri(
     // find intersection point
     float t = f * e2.dot(q);
     if (t < eps) {
-        pinhole_camera(result[res_idx], origin, viewdir, end);
+        // pinhole_camera(result[vp_idx], origin, viewdir, end);
         // result[res_idx] = false;
         return;
     }
@@ -189,11 +199,11 @@ __global__ void ray_int_tri(
     if ((intPoint-origin).dot(vec_dir) < vec.norm() - eps && 
         (intPoint-origin).dot(vec_dir) > 0
         ) {
-        result[res_idx] = true;
+        result[vp_idx] = true;
         return;
     }
 
-    pinhole_camera(result[res_idx], origin, viewdir, end);
+    // pinhole_camera(result[vp_idx], origin, viewdir, end);
     // result[res_idx] = false;
     return;
 }
@@ -260,7 +270,9 @@ __global__ void ray_int_tri_many_2d(
     }
 
     vec3 intPoint = origin + vec * t;
-    int_points[res_idx] = intPoint;
+    if (int_points != nullptr) {
+        int_points[res_idx] = intPoint;
+    }
 
     // check if intersection point is between origin and end
     vec3 vec_dir = vec/vec.norm();
@@ -435,19 +447,26 @@ __global__ void collision_odd(bool* vp_collision, const bool* ray_tri_collision,
 __global__ void collision_or(bool* vp_collision, const bool* ray_tri_collision, size_t n_vp, size_t n_tri) {
     // for each viewpoint-triangle correspondance, check if rays to each vertex collide with any other triangle. if so, write in true
     // get viewpoint index
+    // vp_collision is length n_vp
     size_t vp_idx = blockIdx.x * blockDim.x + threadIdx.x; // n_vp
+    size_t tri_idx = blockIdx.y * blockDim.y + threadIdx.y; // n_tri
 
-    if (vp_idx > n_vp - 1) { return; } // n_tri = n_vp
+    if (vp_idx > n_vp - 1 || tri_idx > n_tri - 1 ) { return; }
 
-    vp_collision[vp_idx] = false;
-    for (size_t tri_idx = 0; tri_idx < n_tri; tri_idx++) {
-        for (size_t tri_pt_idx = 0; tri_pt_idx < 3; tri_pt_idx++) {
-            size_t res_idx = tri_pt_idx * n_tri * n_vp + tri_idx * n_vp + vp_idx;
-            if (ray_tri_collision[res_idx]) {
-                vp_collision[vp_idx] = true;
-            }
+    // vp_collision[vp_idx] = false; 
+
+    // assume vp_collision is initialized to false. if true, another thread has already set it to true
+    if (vp_collision[vp_idx] == true) { return; }
+
+    // for (size_t tri_idx = 0; tri_idx < n_tri; tri_idx++) {
+    for (size_t tri_pt_idx = 0; tri_pt_idx < 3; tri_pt_idx++) {
+        size_t res_idx = tri_pt_idx * n_tri * n_vp + tri_idx * n_vp + vp_idx;
+        if (ray_tri_collision[res_idx]) {
+            vp_collision[vp_idx] = true;
+            return;
         }
     }
+    // }
     return;
 }
 
@@ -493,25 +512,37 @@ __global__ void inc_angle(
     return;
 }
 
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}
+
 extern "C" void cuda_kernel_coverage(
     const Viewpoint& vp, 
     const std::vector<Triangle*>& faces,
-    std::vector<bool>& collisions,
-    vec3** int_points
+    std::vector<bool>& collisions
+    // vec3** int_points
     ) {
+
 
     // put viewpoints into arrays
     size_t n_tri = faces.size();
     size_t n_ray = n_tri * 3;
 
+    // cpu arrays
     vec3 *ends = new vec3[n_ray];
     Triangle *tri = new Triangle[n_tri];
-    bool *result_arr = new bool[n_tri];
-    bool *intersection_arr = new bool[n_ray * n_tri];
-    vec3 *result_int_points;
-    if (int_points != nullptr) {
-        result_int_points = new vec3[n_ray * n_tri];
-    }
+    // bool *result_arr = new bool[n_tri];
+    // bool *intersection_arr = new bool[n_ray * n_tri];
+    // vec3 *result_int_points;
+    // if (int_points != nullptr) {
+    //     result_int_points = new vec3[n_ray * n_tri];
+    // }
 
     // thread, block size
     size_t thread_x = 16;
@@ -537,98 +568,150 @@ extern "C" void cuda_kernel_coverage(
         }
     }
 
-    // allocate gpu memory
-    vec3 *d_ends;
-    Triangle *d_tri;
-
-    bool *d_intersections; // collisions per ray per triangle
+    // create gpu memory pointers
+    vec3 *d_ends; // ray ends to evaluate collisions for
+    Triangle *d_tri; // triangles to evalute coverage over
+    // bool *d_intersections; // collisions per ray per triangle
     bool *d_result; // collisions per triangle
-    vec3 *d_int_points; // intersection points
+    // vec3 *d_int_points; // intersection points
+    gpuErrchk(cudaMalloc(&d_tri, n_tri * sizeof(Triangle)));
+    // gpuErrchk(cudaMalloc(&d_intersections, n_ray * n_tri * sizeof(bool)));
 
-    cudaMalloc(&d_ends, n_ray * sizeof(vec3));
-    cudaMalloc(&d_tri, n_tri * sizeof(Triangle));
-    cudaMalloc(&d_result, n_tri * sizeof(bool));
-    cudaMalloc(&d_intersections, n_ray * n_tri * sizeof(bool));
-    if (int_points != nullptr) {
-        cudaMalloc(&d_int_points, n_ray * n_tri * sizeof(vec3));
-    } else {
-        d_int_points = nullptr;
-    }
+    // d_int_points = nullptr;
+    // if (int_points != nullptr) {
+    //     cudaMalloc(&d_int_points, n_ray * n_tri * sizeof(vec3));
+    // } else {
+    //     d_int_points = nullptr;
+    // }
 
     // copy data to gpu
-    cudaMemcpy(d_ends, ends, n_ray * sizeof(vec3), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_tri, tri, n_tri * sizeof(Triangle), cudaMemcpyHostToDevice);
+    // gpuErrchk(cudaMemcpy(d_ends, ends, n_ray * sizeof(vec3), cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(d_tri, tri, n_tri * sizeof(Triangle), cudaMemcpyHostToDevice));
 
-    // set thread and block size
-    dim3 threadsPerBlock(thread_x, thread_y, thread_z);
 
-    // 2D blocks because 3d blocks can account for the 3rd dim by themselves
-    dim3 numBlocks(int((n_tri + threadsPerBlock.x - 1) / threadsPerBlock.x), (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
-    ray_int_tri<<<numBlocks, threadsPerBlock>>>(
-        d_intersections, 
-        d_int_points, 
-        vp.pose, 
-        vp.viewdir,
-        d_ends, 
-        d_tri, 
-        n_tri
-    );
+    // //timing code
+    // cudaEvent_t start, stop;
+    // cudaEventCreate(&start);
+    // cudaEventCreate(&stop);
 
-    cudaMemcpy(intersection_arr, d_intersections, n_ray * n_tri * sizeof(bool), cudaMemcpyDeviceToHost);
 
-    // same as above but without the 3rd dimension
-    threadsPerBlock.x = 1024;
-    threadsPerBlock.y = 1;
-    threadsPerBlock.z = 1;
-    numBlocks.x = (n_tri + threadsPerBlock.x - 1) / threadsPerBlock.x;
-    collision_or<<<numBlocks, threadsPerBlock>>>(d_result, d_intersections, n_tri, n_tri);
+    // batch faces
+    size_t n_vp = 10000;
+    size_t n_ray_batch = n_vp * 3;
+    size_t n_batches = (faces.size() + n_ray_batch - 1) / n_ray_batch;
 
-    cudaMemcpy(result_arr, d_result, n_tri * sizeof(bool), cudaMemcpyDeviceToHost);
+    for (size_t batch_idx = 0; batch_idx < n_batches; batch_idx++) {
 
-    if (int_points != nullptr) {
-        cudaMemcpy(result_int_points, d_int_points, n_ray * n_tri * sizeof(vec3), cudaMemcpyDeviceToHost);
-    }
+        size_t start_vp_idx = batch_idx * n_vp;
+        size_t start_idx = start_vp_idx * 3;
 
-    cudaFree(d_ends);
-    cudaFree(d_tri);
-    cudaFree(d_result);
-    cudaFree(d_intersections);
-    cudaFree(d_int_points);
+        size_t end_vp_idx = std::min((batch_idx + 1) * n_vp, n_tri);
+        // size_t end_idx = end_vp_idx * 3;
 
-    for (size_t vp_idx=0; vp_idx < n_tri; vp_idx++) {
-        if (vp_idx < 100) {std::cout << (result_arr[vp_idx] ? "1" : "0");}
-        collisions.push_back(result_arr[vp_idx]);
-    }
-    std::cout << std::endl;
+        size_t vp_batch_size = end_vp_idx - start_vp_idx;
+        size_t ray_batch_size = vp_batch_size * 3;
 
-    if (int_points != nullptr) {
-        for (size_t vp_idx = 0; vp_idx < n_tri; vp_idx++) {
-            for (size_t tri_idx = 0; tri_idx < n_tri; tri_idx++) {
-                for (size_t tri_pt_idx = 0; tri_pt_idx < 3; tri_pt_idx++) {
-                    size_t res_idx = tri_pt_idx * n_tri * n_tri + tri_idx * n_tri + vp_idx;
-                    size_t ray_idx = tri_idx * 3 + tri_pt_idx;
-                    if (intersection_arr[res_idx]) {
-                        int_points[vp_idx][ray_idx] = result_int_points[res_idx];
-                    } else {
-                        int_points[vp_idx][ray_idx] = vec3(
-                            std::numeric_limits<float>::infinity(), 
-                            std::numeric_limits<float>::infinity(), 
-                            std::numeric_limits<float>::infinity()
-                        );
-                    }
-                    // int_points[vp_idx][ray_idx] = result_int_points[res_idx];
-                }
-            }
+        gpuErrchk(cudaMalloc(&d_result, vp_batch_size * sizeof(bool)));
+        gpuErrchk(cudaMemset(d_result, 0, vp_batch_size * sizeof(bool)));
+        gpuErrchk(cudaMalloc(&d_ends, ray_batch_size * sizeof(vec3)));
+        // gpuErrchk(cudaMalloc(&d_intersections, ray_batch_size * n_tri * sizeof(bool)));
+
+        vec3 *batch_ends = new vec3[ray_batch_size];
+        for (size_t i = 0; i < ray_batch_size; i++) {
+            batch_ends[i] = ends[start_idx + i];
         }
+        gpuErrchk(cudaMemcpy(d_ends, batch_ends, ray_batch_size * sizeof(vec3), cudaMemcpyHostToDevice)); // pick ends to be the first n_ray_batch
+
+        // set thread and block size
+        dim3 threadsPerBlock(thread_x, thread_y, thread_z);
+
+        // 2D blocks because 3d blocks can account for the 3rd dim by themselves
+        dim3 numBlocks(int((ray_batch_size + threadsPerBlock.x - 1) / threadsPerBlock.x), (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
+        ray_int_tri<<<numBlocks, threadsPerBlock>>>(
+            d_result,
+            // d_intersections, 
+            // d_int_points, 
+            nullptr,
+            vp.pose, 
+            vp.viewdir,
+            d_ends, 
+            d_tri, 
+            n_tri,
+            vp_batch_size
+        );
+
+        gpuErrchk(cudaFree(d_ends));
+
+        // cudaDeviceSynchronize();
+
+        // // give each thread own true/false task
+        // threadsPerBlock.x = 32;
+        // threadsPerBlock.y = 32;
+        // threadsPerBlock.z = 1;
+        // numBlocks.x = (vp_batch_size + threadsPerBlock.x - 1) / threadsPerBlock.x;
+        // numBlocks.y = (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y;
+        // collision_or<<<numBlocks, threadsPerBlock>>>(d_result, d_intersections, vp_batch_size, n_tri);
+        // gpuErrchk(cudaFree(d_intersections));
+
+        // copy results back to host
+        // std::cout << "copying results" << std::endl;
+        bool * batch_result = new bool[vp_batch_size];
+        gpuErrchk(cudaMemcpy(batch_result, d_result, vp_batch_size * sizeof(bool), cudaMemcpyDeviceToHost));
+        gpuErrchk(cudaFree(d_result));
+
+        // copy results into output
+        for (size_t i = 0; i < vp_batch_size; i++) {
+            collisions.push_back(batch_result[i]);
+        }
+
+        delete[] batch_result;
+        delete[] batch_ends;
     }
+
+
+    // gpuErrchk(cudaMemcpy(intersection_arr, d_intersections, n_ray * n_tri * sizeof(bool), cudaMemcpyDeviceToHost));
+
+
+
+    // if (int_points != nullptr) {
+    //     cudaMemcpy(result_int_points, d_int_points, n_ray * n_tri * sizeof(vec3), cudaMemcpyDeviceToHost);
+    // }
+
+    gpuErrchk(cudaFree(d_tri));
+    // gpuErrchk(cudaFree(d_int_points));
+
+    // for (size_t vp_idx=0; vp_idx < n_tri; vp_idx++) {
+    //     collisions.push_back(result_arr[vp_idx]);
+    // }
+
+    // if (int_points != nullptr) {
+    //     for (size_t vp_idx = 0; vp_idx < n_tri; vp_idx++) {
+    //         for (size_t tri_idx = 0; tri_idx < n_tri; tri_idx++) {
+    //             for (size_t tri_pt_idx = 0; tri_pt_idx < 3; tri_pt_idx++) {
+    //                 size_t res_idx = tri_pt_idx * n_tri * n_tri + tri_idx * n_tri + vp_idx;
+    //                 size_t ray_idx = tri_idx * 3 + tri_pt_idx;
+    //                 if (intersection_arr[res_idx]) {
+    //                     int_points[vp_idx][ray_idx] = result_int_points[res_idx];
+    //                 } else {
+    //                     int_points[vp_idx][ray_idx] = vec3(
+    //                         std::numeric_limits<float>::infinity(), 
+    //                         std::numeric_limits<float>::infinity(), 
+    //                         std::numeric_limits<float>::infinity()
+    //                     );
+    //                 }
+    //                 // int_points[vp_idx][ray_idx] = result_int_points[res_idx];
+    //             }
+    //         }
+    //     }
+    // }
 
     delete[] ends;
     delete[] tri;
-    delete[] result_arr;
-    delete[] intersection_arr;
-    if (int_points != nullptr) {
-        delete[] result_int_points;
-    }
+    // delete[] result_arr;
+    // delete[] intersection_arr;
+    // if (int_points != nullptr) {
+    //     delete[] result_int_points;
+    // }
 }
 
 extern "C" void cuda_kernel_ray_int_plane(
@@ -919,13 +1002,14 @@ extern "C" void cuda_kernel_many(
     cudaMemcpy(intersection_arr, d_intersections, n_ray * n_tri * sizeof(bool), cudaMemcpyDeviceToHost);
 
     // same as above but without the 3rd dimension
-    threadsPerBlock.x = 1024;
-    threadsPerBlock.y = 1;
+    threadsPerBlock.x = 32;
+    threadsPerBlock.y = 32;
     threadsPerBlock.z = 1;
 
     // reusing numBlocks
     numBlocks.x = (n_tri + threadsPerBlock.x - 1) / threadsPerBlock.x;
-    numBlocks.y = 1; // numBlocks.z is already 1
+    numBlocks.y = (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y;
+    // numBlocks.y = 1; // numBlocks.z is already 1
     collision_or<<<numBlocks, threadsPerBlock>>>(d_result, d_intersections, n_vp, n_tri);
 
     cudaDeviceSynchronize();
@@ -991,7 +1075,7 @@ extern "C" void cuda_kernel_collision_points(
     Triangle *tri = new Triangle[n_tri];
     bool *result_arr = new bool[n_vp];
     bool *intersection_arr = new bool[n_vp * n_tri];
-    vec3 *result_int_points = new vec3[n_vp * n_tri];
+    // vec3 *result_int_points = new vec3[n_vp * n_tri];
 
     // thread, block size
     size_t thread_x = 32;
@@ -1018,7 +1102,7 @@ extern "C" void cuda_kernel_collision_points(
 
     bool *d_intersections; // collisions per ray per triangle
     bool *d_result; // collisions per triangle
-    vec3 *d_int_points; // intersection points
+    // vec3 *d_int_points; // intersection points
 
     cudaMalloc(&d_starts, n_vp * sizeof(vec3));
     // cudaMalloc(&d_viewdirs, n_vp * sizeof(vec3));
@@ -1026,7 +1110,7 @@ extern "C" void cuda_kernel_collision_points(
     cudaMalloc(&d_tri, n_tri * sizeof(Triangle));
     cudaMalloc(&d_intersections, n_vp * n_tri * sizeof(bool));
     cudaMalloc(&d_result, n_vp * sizeof(bool));
-    cudaMalloc(&d_int_points, n_vp * n_tri * sizeof(vec3));
+    // cudaMalloc(&d_int_points, n_vp * n_tri * sizeof(vec3));
 
     // copy data to gpu
     cudaMemcpy(d_starts, starts, n_vp * sizeof(vec3), cudaMemcpyHostToDevice);
@@ -1041,7 +1125,8 @@ extern "C" void cuda_kernel_collision_points(
     dim3 numBlocks(int((n_vp + threadsPerBlock.x - 1) / threadsPerBlock.x), (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
     ray_int_tri_many_2d<<<numBlocks, threadsPerBlock>>>(
         d_intersections, 
-        d_int_points, 
+        nullptr,
+        // d_int_points, 
         d_starts, 
         // d_viewdirs,
         d_ends,
@@ -1050,7 +1135,7 @@ extern "C" void cuda_kernel_collision_points(
         n_tri
     );
 
-    cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
 
     cudaMemcpy(intersection_arr, d_intersections, n_vp * n_tri * sizeof(bool), cudaMemcpyDeviceToHost);
     // cudaMemcpy(result_int_points, d_int_points, n_vp * n_tri * sizeof(vec3), cudaMemcpyDeviceToHost);
@@ -1070,7 +1155,7 @@ extern "C" void cuda_kernel_collision_points(
         n_tri
     );
 
-    cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
 
     cudaMemcpy(result_arr, d_result, n_vp * sizeof(bool), cudaMemcpyDeviceToHost);
 
@@ -1080,7 +1165,7 @@ extern "C" void cuda_kernel_collision_points(
     cudaFree(d_tri);
     cudaFree(d_result);
     cudaFree(d_intersections);
-    cudaFree(d_int_points);
+    // cudaFree(d_int_points);
 
     for (size_t vp_idx=0; vp_idx < n_vp; vp_idx++) {
         in_collision.push_back(result_arr[vp_idx]);
@@ -1112,7 +1197,7 @@ extern "C" void cuda_kernel_collision_points(
     delete[] tri;
     delete[] result_arr;
     delete[] intersection_arr;
-    delete[] result_int_points;
+    // delete[] result_int_points;
 }
 
 extern "C" void cuda_kernel_inc_angle(

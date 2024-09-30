@@ -404,7 +404,7 @@ void loadVxStationOBS(std::vector<OBS>& obsVec, float scale) {
     std::vector<std::vector<float>> tri_data;
 
     // each row is a triangle (3 points = 9 numbers) and normals (3 numbers)
-    loadCSV(filename, tri_data, 12, ' ');
+    loadCSV(filename, tri_data, 12, ',');
 
     // convert flat data to triangle objects
     std::vector<Triangle> tris;
@@ -526,10 +526,9 @@ void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Tri
     */
     std::ostringstream message;
     auto begin = std::chrono::high_resolution_clock::now();
-    // for (size_t i = 0; i < viewpoints.size(); ++i) {
-    for (size_t i = 10000; i < 10100; ++i) {
+    for (size_t i = 0; i < viewpoints.size(); ++i) {
         std::vector<bool> coverage;
-        cuda_kernel_coverage(viewpoints[i], triangles, coverage, nullptr);
+        cuda_kernel_coverage(viewpoints[i], triangles, coverage);
         for (size_t j = 0; j < coverage.size(); j++) {
             coverage[j] = !coverage[j];
         }
@@ -544,7 +543,7 @@ void getCoverage(const std::vector<Viewpoint>& viewpoints, const std::vector<Tri
         double minutes_remaining = seconds_remaining / 60.0;
         seconds_remaining = std::fmod(seconds_remaining, 60.0);
         message << " Time remaining: " << int(minutes_remaining) << "m " << int(seconds_remaining) << "s";
-        // displayProgressBar(static_cast<double>(i) / viewpoints.size(), 150, message);
+        displayProgressBar(static_cast<double>(i) / viewpoints.size(), 150, message);
         message.str("");
     }
 }
@@ -718,4 +717,37 @@ float fuel_cost(vec3 pose, vec3 v0, vec3 v1, float speed, float dt) {
     // std::cout << std::fixed << std::setprecision(9) << m0 - mf; // Write value
     // std::cout << std::endl;
     return m0 - mf;
+}
+// size_t free, total;
+// printf("\n");
+// cudaMemGetInfo(&free,&total);   
+// printf("%d KB free of total %d KB\n",free/1024,total/1024);
+void batch_incidence_angle(const std::vector<Viewpoint>& viewpoints, const std::vector<Triangle*>& faces, std::vector<std::vector<float>>& inc_angle_map) {
+    // batch incidence angle computation by viewpoint
+    size_t batch_size = 10000; // n viewpoints per batch
+    size_t n_batches = (viewpoints.size() + batch_size - 1) / batch_size;
+    std::ostringstream message;
+    message.str("");
+    for (size_t i = 0; i < n_batches; i++) {
+        displayProgressBar(static_cast<double>(i) / n_batches, 150, message);
+        // index batch
+        size_t start_idx = i * batch_size;
+        size_t end_idx = std::min((i + 1) * batch_size, viewpoints.size());
+
+        // batch viewpoints
+        std::vector<Viewpoint> batch_viewpoints(viewpoints.begin() + start_idx, viewpoints.begin() + end_idx);
+
+        // batch incidence angle results
+        std::vector<std::vector<float>> batch_inc_angles;
+
+        // compute incidence angles
+        cuda_kernel_inc_angle(batch_viewpoints, faces, batch_inc_angles);
+
+        // push back results to inc_angle_map
+        for (size_t vp_idx = 0; vp_idx < batch_viewpoints.size(); vp_idx++) {
+            inc_angle_map.push_back(batch_inc_angles[vp_idx]);
+        }
+    }
+    displayProgressBar(1.0, 150, message);
+    std::cout << std::endl;
 }

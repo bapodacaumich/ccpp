@@ -16,13 +16,14 @@
 //     float vfov // rad
 // );
 
+
 // given a viewpoint: determine visible (can see all three vertices) triangles -- true means not visible (collision during raycast)
 // populate int_points with intersection points between rays cast to each vertex of triangle in question and other triangles
 extern "C" void cuda_kernel_coverage(
     const Viewpoint& viewpoint,
     const std::vector<Triangle*>& triangles,
-    std::vector<bool>& collisions, // empty vector to be filled with true/false for each triangle
-    vec3** int_points
+    std::vector<bool>& collisions // empty vector to be filled with true/false for each triangle
+    // vec3** int_points
 );
 
 extern "C" void cuda_kernel_ray_int_plane(

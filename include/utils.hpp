@@ -45,5 +45,6 @@ void pinhole_camera_test( bool& visible, vec3 pose, vec3 viewdir, vec3 point, fl
 void cw_acceleration(vec3& acceleration, vec3 pose, vec3 velocity);
 float cw_cost(vec3 start, vec3 end, float speed, size_t N);
 float fuel_cost(vec3 pose, vec3 v0, vec3 v1, float speed, float dt);
+void batch_incidence_angle(const std::vector<Viewpoint>& viewpoints, const std::vector<Triangle*>& triangles, std::vector<std::vector<float>>& inc_angle_map);
 
 #endif // UTILS_HPP

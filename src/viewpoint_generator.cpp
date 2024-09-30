@@ -202,7 +202,7 @@ std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints(bool local, con
 
         // compute incidence angle between each viewpoint and each face
         std::cout << "Computing Incidence Angles..." << std::endl;
-        cuda_kernel_inc_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
+        batch_incidence_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
         std::cout << "Incidence Angles Computed" << std::endl;
 
         if (!compute_coverage) {
@@ -212,6 +212,7 @@ std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints(bool local, con
             // compute coverage map
             std::cout << "Computing Coverage Map..." << std::endl;
             this->populateCoverage();
+            std::cout << "Saving Coverage Map..." << std::endl;
             this->saveCoverageMap(coverage_file, vx);
         }
 
@@ -227,7 +228,7 @@ std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints(bool local, con
 
         // compute incidence angle between each viewpoint and each face
         std::cout << "Computing Incidence Angles..." << std::endl;
-        cuda_kernel_inc_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
+        batch_incidence_angle(this->unfiltered_viewpoints, this->all_faces, this->inc_angle_map);
 
         if (!compute_coverage) {
             // load coverage map
@@ -237,6 +238,7 @@ std::vector<Viewpoint> ViewpointGenerator::getCoverageViewpoints(bool local, con
             // compute coverage map
             std::cout << "Computing Coverage Map..." << std::endl;
             this->populateCoverage();
+            std::cout << "Saving Coverage Map..." << std::endl;
             this->saveCoverageMap(coverage_file, vx);
         }
 
@@ -549,13 +551,14 @@ void ViewpointGenerator::populateCoverage() {
     std::cout << "Populating Coverage Map..." << std::endl;
     // populate the filtered or unfiltered coverage map
     getCoverage(this->unfiltered_viewpoints, this->all_faces, this->coverage_map);
-    for (size_t vp_idx=0; vp_idx < this->unfiltered_viewpoints.size(); vp_idx++) {
-        for (size_t face_idx=0; face_idx < this->num_mesh_faces; face_idx++) {
-            if (this->coverage_map[vp_idx][face_idx] && this->inc_angle_map[vp_idx][face_idx] > M_PI / 2.0f) {
-                this->coverage_map[vp_idx][face_idx] = false;
-            }
-        }
-    }
+    // std::cout << "Coverage Map Computed. Filtering by inv_angle" << std::endl;
+    // for (size_t vp_idx=0; vp_idx < this->unfiltered_viewpoints.size(); vp_idx++) {
+    //     for (size_t face_idx=0; face_idx < this->num_mesh_faces; face_idx++) {
+    //         if (this->coverage_map[vp_idx][face_idx] && this->inc_angle_map[vp_idx][face_idx] > M_PI / 2.0f) {
+    //             this->coverage_map[vp_idx][face_idx] = false;
+    //         }
+    //     }
+    // }
     std::cout << std::endl;
 }
 
@@ -603,7 +606,8 @@ bool ViewpointGenerator::populateViewpoints() {
     std::vector<size_t> sampled_face_indices = std::vector<size_t>();
 
 
-    for (size_t face_idx = 0; face_idx < this->num_mesh_faces; face_idx++) {
+    // for (size_t face_idx = 0; face_idx < this->num_mesh_faces; face_idx++) {
+    for (size_t face_idx = 0; face_idx < 10; face_idx++) {
         vec3 centroid = this->all_faces[face_idx]->getCentroid();
         vec3 normal = this->all_faces[face_idx]->n;
 
@@ -646,6 +650,8 @@ bool ViewpointGenerator::populateViewpoints() {
             normal * -1.0f,
             this->all_faces[face_idx]->module_idx
             );
+
+        // std::cout << " (pose=" << vp.pose.toString() << ", viewdir=" << vp.viewdir.toString() << ") ";
         sampled_viewpoints.push_back(vp);
         sampled_face_indices.push_back(face_idx);
 
