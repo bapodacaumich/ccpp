@@ -3,6 +3,9 @@
 /build/**
 /build/*
 /build/
+/data_vx/coverage_maps/**
+/data_vx/coverage_maps/*
+/data_vx/coverage_maps/
 /data/coverage_maps/**
 /data/coverage_maps/*
 /data/coverage_maps/
