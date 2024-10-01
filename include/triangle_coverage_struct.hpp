@@ -5,6 +5,7 @@
 
 struct TriangleCoverage {
     bool covered;
+    bool covered_any;
     float best_inc_angle;
     size_t module_idx;
 };

@@ -9,6 +9,9 @@
 /data/coverage_maps/**
 /data/coverage_maps/*
 /data/coverage_maps/
+/data_vx/tsp/**
+/data_vx/tsp/*
+/data_vx/tsp/
 /data/tsp/**
 /data/tsp/*
 /data/tsp/

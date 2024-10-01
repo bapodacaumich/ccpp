@@ -31,6 +31,7 @@ void convertFlatToTriangle(const std::vector<std::vector<float>>& flatData, std:
 void loadCubeOBS(std::vector<OBS>& obsVec);
 void loadConvexStationOBS(std::vector<OBS>& obsVec, float scale);
 void loadStationOBS(std::vector<OBS>& obsVec, float scale);
+void printHistogram(std::vector<float>& data);
 void loadVxStationOBS(std::vector<OBS>& obsVec, float scale);
 void vecToTri(const std::vector<std::vector<std::vector<float>>>& data, std::vector<Triangle>& tris);
 bool allTrue(const std::vector<TriangleCoverage>& arr, size_t module_idx);

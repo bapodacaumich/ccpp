@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
         locality_str = "global";
     }
 
-    bool compute_coverage = true;
+    bool compute_coverage = false;
     bool vx = true;
     std::string vx_str = "";
     if (vx) {vx_str = "_vx";}
@@ -97,30 +97,31 @@ int main(int argc, char** argv) {
     // ***************** Assigning Module Membership to Coverage Viewpoints End *****************
 
     std::cout << "Running Greedy.." << std::endl;
-    std::vector<Viewpoint> coverage_viewpoints = vg.getCoverageViewpoints(local, coverage_save_file, compute_coverage, vx);
-    std::vector<std::vector<float>> viewpoint_data_save;
-    for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
-        std::vector<float> vp_data;
-        vp_data.push_back(coverage_viewpoints[i].pose.x);
-        vp_data.push_back(coverage_viewpoints[i].pose.y);
-        vp_data.push_back(coverage_viewpoints[i].pose.z);
-        vp_data.push_back(coverage_viewpoints[i].viewdir.x);
-        vp_data.push_back(coverage_viewpoints[i].viewdir.y);
-        vp_data.push_back(coverage_viewpoints[i].viewdir.z);
-        vp_data.push_back(coverage_viewpoints[i].module_idx);
-        viewpoint_data_save.push_back(vp_data);
-    }
+    std::string save_file;
     if (local) {
-        std::string save_file = "../data" + vx_str + "/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv";
+        save_file = "../data" + vx_str + "/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv";
         std::cout << "Saving viewpoint data to: " << save_file << std::endl;
-        saveCSV(save_file, viewpoint_data_save);
+        // saveCSV(save_file, viewpoint_data_save);
         // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_local_vp_set.csv", viewpoint_data_save);
     } else {
-        std::string save_file = "../data" + vx_str + "/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv";
+        save_file = "../data" + vx_str + "/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv";
         std::cout << "Saving viewpoint data to: " << save_file << std::endl;
-        saveCSV(save_file, viewpoint_data_save);
+        // saveCSV(save_file, viewpoint_data_save);
         // saveCSV("../data/coverage_viewpoint_sets/coverage_" + std::to_string(static_cast<int>(vgd)) + "m_global_vp_set.csv", viewpoint_data_save);
     }
+    vg.getCoverageViewpoints(local, coverage_save_file, compute_coverage, vx, save_file);
+    // std::vector<std::vector<float>> viewpoint_data_save;
+    // for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
+    //     std::vector<float> vp_data;
+    //     vp_data.push_back(coverage_viewpoints[i].pose.x);
+    //     vp_data.push_back(coverage_viewpoints[i].pose.y);
+    //     vp_data.push_back(coverage_viewpoints[i].pose.z);
+    //     vp_data.push_back(coverage_viewpoints[i].viewdir.x);
+    //     vp_data.push_back(coverage_viewpoints[i].viewdir.y);
+    //     vp_data.push_back(coverage_viewpoints[i].viewdir.z);
+    //     vp_data.push_back(coverage_viewpoints[i].module_idx);
+    //     viewpoint_data_save.push_back(vp_data);
+    // }
 
     // save bool vector of final coverage of mesh faces
     std::vector<bool> final_coverage;
@@ -143,13 +144,6 @@ int main(int argc, char** argv) {
         saveCSV(save_file, final_coverage_data);
         // saveCSV("../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_global_coverage.csv", final_coverage_data);
     }
-    std::cout << "NUM VIEWPOINTS: " << coverage_viewpoints.size() << std::endl;
-
-    std::cout << "\n-----------------Coverage Viewpoints-----------------\n";
-    for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
-        std::cout << "Viewpoint " << i << ": pose=" << coverage_viewpoints[i].pose.toString() << " viewdir=" << coverage_viewpoints[i].viewdir.toString() << std::endl;
-    }
-
     // Compute cost matrix for travelling salesman problem for all viewpoints
     Viewpoint start = Viewpoint( vec3(1.8f, 4.7f, 2.7f), vec3(0.0f, 0.0f, -1.0f), 2);
     size_t rrtz_iter = 500;

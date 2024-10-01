@@ -391,6 +391,80 @@ void loadStationOBS(std::vector<OBS>& obsVec, float scale) {
     }
 }
 
+void printHistogram(std::vector<float>& data) {
+    /*
+    * Print a histogram of data
+    * @param data: const std::vector<float>&, input data
+    */
+
+    // BIN DATA:
+    size_t num_bins = 100;
+
+    // get min element in data and move above 0
+    float min = *std::min_element(data.begin(), data.end());
+    for (size_t i = 0; i < data.size(); ++i) {
+        data[i] -= min;
+    }
+
+    // get max element in data
+    float max = *std::max_element(data.begin(), data.end());
+
+    // get bin width
+    float bin_width = max / static_cast<float>(num_bins);
+
+    // hist for counting number of elements in each bin
+    std::vector<size_t> hist(num_bins, 0);
+
+    for (size_t i = 0; i < data.size(); ++i) {
+        // get bin to increment
+        size_t bin = static_cast<size_t>(data[i] / bin_width);
+
+        // if data[i] is max value, put in last bin
+        if (bin == num_bins) {
+            bin -= 1;
+        }
+
+        // increment bin
+        hist[bin] += 1;
+    }
+
+    // get max bin height
+    size_t max_bin = *std::max_element(hist.begin(), hist.end());
+
+    for (size_t i = max_bin; i > 0; i--) {
+        std::cout << std::setw(2) << i << ": ";
+        for (size_t j = 0; j < hist.size(); ++j) {
+            if (hist[j] >= i) {
+                std::cout << "#";
+            } else {
+                std::cout << " ";
+            }
+        }
+        std::cout << std::endl;
+    }
+
+    // print x-axis
+    std::cout << "    ";
+    for (size_t i = 0; i < num_bins; ++i) {
+        std::cout << "-";
+    }
+    std::cout << std::endl;
+
+    // print bin numbers
+    std::cout << "  ";
+    for (size_t i = 0; i < num_bins; i += 6) {
+        std::cout << "  |   ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "  ";
+    for (size_t i = 0; i < num_bins; i += 6) {
+        std::cout << std::to_string(std::exp((max/num_bins * i) + min)).substr(0, 5);
+        std::cout << " ";
+    }
+    std::cout << std::endl;
+}
+
 
 void loadVxStationOBS(std::vector<OBS>& obsVec, float scale) {
     /*
@@ -400,7 +474,7 @@ void loadVxStationOBS(std::vector<OBS>& obsVec, float scale) {
     std::string model_dir = "../data/model_remeshed/";
 
     // load triangle mesh data
-    std::string filename = model_dir + "vx_faces_normals.csv"; // 9 length vector
+    std::string filename = model_dir + "vxc_faces_normals.csv"; // 9 length vector
     std::vector<std::vector<float>> tri_data;
 
     // each row is a triangle (3 points = 9 numbers) and normals (3 numbers)

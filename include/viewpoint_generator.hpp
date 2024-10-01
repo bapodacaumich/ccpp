@@ -21,12 +21,12 @@ class ViewpointGenerator {
         ViewpointGenerator(
             std::vector<OBS> structure,
             float vgd=2.0f,
-            float inc_angle_max=90.0f * M_PI / 180.0f,
+            float inc_angle_max=70.0f * M_PI / 180.0f,
             float inc_improvement_minimum=70.0f * M_PI / 180.0f,
             float inc_improvement_threshold=10.0f * M_PI / 180.0f
         );
 
-        std::vector<Viewpoint> getCoverageViewpoints(bool local, const std::string& coverage_file, bool compute_coverage, bool vx);
+        void getCoverageViewpoints(bool local, const std::string& coverage_file, bool compute_coverage, bool vx, const std::string& save_file);
         void printCoverageMap();
 
         // save coverage map so we don't have to regenerate
@@ -82,8 +82,14 @@ class ViewpointGenerator {
         void updateCoverage(float inc_angle_threshold);
         void setUpCoverageGain();
 
+        // helper function for marginal gain computations
+        float computeMarginalGain(size_t module_idx, VPCoverageGain& vpcg);
+
         // reassign module membership to four modules
         void reassignModuleMembership();
+
+        void updateFilteredGain();
+        void pruneFilteredViewpoints(bool visualize=false);
 };
 
 #endif // VIEWPOINT_GENERATOR_HPP
