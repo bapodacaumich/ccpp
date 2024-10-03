@@ -15,6 +15,9 @@
 /data/tsp/**
 /data/tsp/*
 /data/tsp/
+/knot_ocp/**
+/knot_ocp/*
+/knot_ocp/
 /visualization_python/__pycache__/**
 /visualization_python/__pycache__/*
 /visualization_python/__pycache__/

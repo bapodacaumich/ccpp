@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <iostream>
+#include <limits>
+#include <random>
 #include <string>
 
 TSP::TSP() {
@@ -135,43 +137,160 @@ bool TSP::checkModuleContinuity() {
     return true;
 }
 
+void TSP::testSwappedIdxs(std::vector<std::vector<size_t>> swap_idxs, float& best_new_cost, float& new_cost) {
+    // swap idxs of path in swap_idxs and test if path is better than current best
+    std::vector<float> costs = {best_new_cost};
+
+    for (size_t i = 0; i < swap_idxs.size(); i++) {
+        size_t idx0 = swap_idxs[i][0];
+        size_t idx1 = swap_idxs[i][1];
+
+        // get iterators to perform swap
+        auto it0 = this->path.begin() + idx0;
+        auto it1 = this->path.begin() + idx1;
+
+        // swap
+        std::reverse(it0, it1);
+
+        // check local continuity
+        if (!this->checkModuleContinuity()) {
+            std::reverse(it0, it1);
+            swap_idxs.erase(swap_idxs.begin() + i);
+            i--;
+        } else {
+            // check viable path cost
+            costs.push_back(this->pathCost());
+        }
+
+        // // if new cost is worse, swap back
+        // if (new_cost >= best_new_cost || !this->checkModuleContinuity()) {
+        //     std::reverse(it0, it1);
+        //     new_cost = best_new_cost; // 'reset' new cost to previous best
+        // } else {
+        //     std::cout << "New Best: ";
+        //     for (size_t i = 0; i < this->path.size(); i++) {
+        //         std::cout << this->path[i].vp_idx << " ";
+        //     }
+        //     std::cout << "| Cost=" << std::to_string(new_cost) << " < " << std::to_string(best_new_cost) << std::endl;
+        //     best_new_cost = new_cost;
+        // }
+    }
+
+    // find the maximum element iterator
+    auto min_it = std::min_element(costs.begin(), costs.end());
+
+    // get indexof the maximum element
+    size_t argmin = std::distance(costs.begin(), min_it);
+
+    // save best cost
+    if (costs[argmin] < best_new_cost) {
+        best_new_cost = costs[argmin];
+        std::cout << "New Best: " << std::to_string(best_new_cost) << std::endl;
+    }
+
+    for (size_t i = swap_idxs.size() - 1; i >= argmin && i < swap_idxs.size(); i--) {
+        size_t idx0 = swap_idxs[i][0];
+        size_t idx1 = swap_idxs[i][1];
+
+        // get iterators to perform swap
+        auto it0 = this->path.begin() + idx0;
+        auto it1 = this->path.begin() + idx1;
+
+        // swap back
+        std::reverse(it0, it1);
+    }
+}
+
 void TSP::twoOpt() {
     // 2-opt algorithm
     // https://en.wikipedia.org/wiki/2-opt
     // https://en.wikipedia.org/wiki/Travelling_salesman_problem
-    float best_cost = this->pathCost();
-    float new_cost = best_cost;
+    float best_new_cost = this->pathCost();
+    float best_cost = best_new_cost + 1e-5;
+    float new_cost = std::numeric_limits<float>::max();
 
-    std::cout << "Two Opt Cost Improvement" << std::endl << std::endl;
-    while (new_cost < best_cost) {
-        std::cout << "\rBest Cost=" << std::to_string(best_cost) << " New Cost=" << std::to_string(new_cost);
-    // while (last_cost == std::numeric_limits<float>::max()) {
-        for (size_t idx0 = 1; idx0 < this->path.size() - 2; idx0++) {
+    std::cout << "Two Opt Cost Improvement. Current Cost=" << std::to_string(best_new_cost) << std::endl;
+
+    std::vector<std::vector<size_t>> swap_idxs;
+
+    while (best_new_cost < best_cost) {
+        // update best cost to best new cost from last iteration
+        best_cost = best_new_cost;
+
+        // while (last_cost == std::numeric_limits<float>::max()) {
+        for (size_t idx0 = 1; idx0 < this->path.size() - 1; idx0++) {
         // for (size_t idx0 = 1; idx0 < 4; idx0++) {
-            for (size_t idx1 = 3; idx1 < this->path.size(); idx1++) {
+            for (size_t idx1 = idx0 + 2; idx1 <= this->path.size(); idx1++) {
             // for (size_t idx1 = 3; idx1 < this->path.size(); idx1++) {
-                // get iterators to perform swap
-                auto it0 = this->path.begin() + idx0;
-                auto it1 = this->path.begin() + idx1;
-
-                // swap
-                std::reverse(it0, it1);
-
-                // calculate new cost
-                new_cost = this->pathCost();
-
-                // if new cost is worse, swap back
-                if (new_cost >= best_cost || !this->checkModuleContinuity()) {
-                    std::reverse(it0, it1);
-                    new_cost = best_cost; // 'reset' new cost to previous best
-                } else {
-                    best_cost = new_cost;
-                }
+                // save swap idxs
+                std::vector<size_t> swap_idx = {idx0, idx1};
+                swap_idxs.push_back(swap_idx);
             }
         }
+
+        // shuffle swap idxs
+        auto rng = std::default_random_engine {};
+        std::shuffle(swap_idxs.begin(), swap_idxs.end(), rng);
+
+        size_t n_swaps = 10;
+        for (size_t i = 0; i < swap_idxs.size() - n_swaps; i++) {
+            std::vector<std::vector<size_t>> swap_idxs_sub(swap_idxs.begin() + i, swap_idxs.begin() + i + n_swaps);
+            this->testSwappedIdxs(swap_idxs_sub, best_new_cost, new_cost);
+            // size_t idx0 = swap_idxs[i][0];
+            // size_t idx1 = swap_idxs[i][1];
+
+            // // get iterators to perform swap
+            // auto it0 = this->path.begin() + idx0;
+            // auto it1 = this->path.begin() + idx1;
+
+            // // swap
+            // std::reverse(it0, it1);
+
+            // // calculate new cost
+            // new_cost = this->pathCost();
+
+            // // if new cost is worse, swap back
+            // if (new_cost >= best_new_cost || !this->checkModuleContinuity()) {
+            //     std::reverse(it0, it1);
+            //     new_cost = best_new_cost; // 'reset' new cost to previous best
+            // } else {
+            //     std::cout << "New Best: ";
+            //     for (size_t i = 0; i < this->path.size(); i++) {
+            //         std::cout << this->path[i].vp_idx << " ";
+            //     }
+            //     std::cout << "| Cost=" << std::to_string(new_cost) << " < " << std::to_string(best_new_cost) << std::endl;
+            //     best_new_cost = new_cost;
+            // }
+        }
+        //         // get iterators to perform swap
+        //         auto it0 = this->path.begin() + idx0;
+        //         auto it1 = this->path.begin() + idx1;
+
+        //         // swap
+        //         std::reverse(it0, it1);
+
+        //         // calculate new cost
+        //         new_cost = this->pathCost();
+
+        //         // if new cost is worse, swap back
+        //         if (new_cost >= best_new_cost || !this->checkModuleContinuity()) {
+        //             std::reverse(it0, it1);
+        //             new_cost = best_new_cost; // 'reset' new cost to previous best
+        //         } else {
+        //             std::cout << "New Best: ";
+        //             for (size_t i = 0; i < this->path.size(); i++) {
+        //                 std::cout << this->path[i].vp_idx << " ";
+        //             }
+        //             std::cout << "| Cost=" << std::to_string(new_cost) << " < " << std::to_string(best_new_cost) << std::endl;
+        //             best_new_cost = new_cost;
+        //         }
+        //     }
+        // }
     }
 
-    std::cout << "Two Opt Path: ";
+    best_cost = best_new_cost;
+
+    std::cout << "\nTwo Opt Path: ";
     for (size_t i = 0; i < this->path.size(); i++) {
         std::cout << this->path[i].toString() << " ";
     }

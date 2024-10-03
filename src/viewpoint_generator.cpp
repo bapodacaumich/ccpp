@@ -246,20 +246,23 @@ void ViewpointGenerator::getCoverageViewpoints(bool local, const std::string& co
         this->greedy();
     }
 
-    std::vector<std::vector<float>> viewpoint_data_save;
-    for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
-        std::vector<float> vp_data;
-        vp_data.push_back(this->coverage_viewpoints[i].pose.x);
-        vp_data.push_back(this->coverage_viewpoints[i].pose.y);
-        vp_data.push_back(this->coverage_viewpoints[i].pose.z);
-        vp_data.push_back(this->coverage_viewpoints[i].viewdir.x);
-        vp_data.push_back(this->coverage_viewpoints[i].viewdir.y);
-        vp_data.push_back(this->coverage_viewpoints[i].viewdir.z);
-        vp_data.push_back(this->coverage_viewpoints[i].module_idx);
-        viewpoint_data_save.push_back(vp_data);
-    }
+    if (save_file != "") {
+        std::vector<std::vector<float>> viewpoint_data_save;
+        for (size_t i = 0; i < coverage_viewpoints.size(); i++) {
+            std::vector<float> vp_data;
+            vp_data.push_back(this->coverage_viewpoints[i].pose.x);
+            vp_data.push_back(this->coverage_viewpoints[i].pose.y);
+            vp_data.push_back(this->coverage_viewpoints[i].pose.z);
+            vp_data.push_back(this->coverage_viewpoints[i].viewdir.x);
+            vp_data.push_back(this->coverage_viewpoints[i].viewdir.y);
+            vp_data.push_back(this->coverage_viewpoints[i].viewdir.z);
+            vp_data.push_back(this->coverage_viewpoints[i].module_idx);
+            viewpoint_data_save.push_back(vp_data);
+        }
 
-    saveCSV(save_file, viewpoint_data_save);
+        saveCSV(save_file, viewpoint_data_save);
+
+    }
 
     std::cout << "NUM VIEWPOINTS: " << this->coverage_viewpoints.size() << std::endl;
 
@@ -459,12 +462,12 @@ void ViewpointGenerator::greedy() {
             if (this->triangle_coverage[i].covered) { num_covered++; }
         }
 
-        float coverage = static_cast<float>(num_covered) / this->num_mesh_faces;
-        std::cout << "\rCoverage=" << std::to_string(coverage) << std::flush;
-        if (coverage > 0.98) {
-            std::cout << "breaking at 98 percent coverage" << std::endl;
-            break;
-        }
+        // float coverage = static_cast<float>(num_covered) / this->num_mesh_faces;
+        // std::cout << "\rCoverage=" << std::to_string(coverage) << std::flush;
+        // if (coverage > 0.98) {
+        //     std::cout << "breaking at 98 percent coverage" << std::endl;
+        //     break;
+        // }
 
         // check if we have covered all faces
         if (allTrue(this->triangle_coverage)) { 
@@ -477,8 +480,8 @@ void ViewpointGenerator::greedy() {
         }
 
         // print histogram of filtered gains
-        if (this->vpcg_filtered.size() > 20 && i % 50 == 0) {
-            this->pruneFilteredViewpoints(false); // boolean is for visualization
+        if (this->vpcg_filtered.size() > 20 && i % 20 == 0) {
+            this->pruneFilteredViewpoints(true); // boolean is for visualization
         }
 
     }

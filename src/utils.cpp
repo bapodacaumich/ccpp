@@ -333,7 +333,7 @@ void loadConvexStationOBS(std::vector<OBS>& obsVec, float scale) {
         std::vector<Triangle> tris;
         convertFlatToTriangle(tri_data, tris, i);
 
-        vec3 offset = vec3(2.529f, 4.821, 2.591);
+        vec3 offset = vec3(2.529f, 4.821f, 2.591f);
 
         // change offset to reflect center of gravity
         offset -= vec3(2.92199515f, 5.14701097f, 2.63653781f);
@@ -445,20 +445,20 @@ void printHistogram(std::vector<float>& data) {
 
     // print x-axis
     std::cout << "    ";
-    for (size_t i = 0; i < num_bins; ++i) {
+    for (size_t i = 0; i < num_bins+5; ++i) {
         std::cout << "-";
     }
     std::cout << std::endl;
 
     // print bin numbers
-    std::cout << "  ";
+    std::cout << "    ";
     for (size_t i = 0; i < num_bins; i += 6) {
-        std::cout << "  |   ";
+        std::cout << "|     ";
     }
-    std::cout << std::endl;
+    std::cout << "|" << std::endl;
 
     std::cout << "  ";
-    for (size_t i = 0; i < num_bins; i += 6) {
+    for (size_t i = 0; i <= num_bins+5; i += 6) {
         std::cout << std::to_string(std::exp((max/num_bins * i) + min)).substr(0, 5);
         std::cout << " ";
     }

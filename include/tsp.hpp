@@ -34,6 +34,9 @@ class TSP {
         size_t nearestNeighbor(TSPWaypoint wpt, float& best_cost);
         size_t nearest(float& best_cost, size_t& node_idx);
 
+        // two opt helper
+        void testSwappedIdxs(std::vector<std::vector<size_t>> swap_idxs, float& best_new_cost, float& new_cost);
+
         // check path module continuity for this->path
         bool checkModuleContinuity();
 };
