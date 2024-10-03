@@ -40,8 +40,8 @@ extern "C" void cuda_kernel_many_ray(
     const std::vector<vec3>& start_ray,
     const std::vector<vec3>& end_ray,
     const std::vector<Triangle*>& triangles,
-    bool* collisions,
-    vec3** int_points // intersection points if not nullptr
+    bool* collisions
+    // vec3** int_points // intersection points if not nullptr
 );
 
 // given a list of viewpoints mapped to triangles, determine if each viewpoint can see its respective triangle

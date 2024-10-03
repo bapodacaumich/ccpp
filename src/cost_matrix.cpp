@@ -213,7 +213,8 @@ void CostMatrix::generatePathMatrix() {
 
 
     // set wide limits
-    Limit limits = { -5.0f, 10.0f, -5.0f, 15.0f, -5.0f, 10.0f };
+    Limit limits = { -25.0f, 25.0f, -35.0f, 35.0f, -20.0f, 20.0f };
+    // Limit limits = { -5.0f, 10.0f, -5.0f, 15.0f, -5.0f, 10.0f };
 
     // load obstacles
     std::vector<OBS> obsVec;

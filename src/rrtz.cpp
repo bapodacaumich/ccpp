@@ -28,7 +28,6 @@ RRTZ::RRTZ(
     size_t max_nodes,
     bool debug
     ) {
-    srand(0);
 
     // save problem config
     this->start = start;
@@ -207,7 +206,7 @@ bool RRTZ::extend(Plane p, float& cost) {
             // }
         }
         bool* collisions = new bool[near_nodes.size()];
-        cuda_kernel_many_ray(start_ray, end_ray, this->triangles, collisions, nullptr);
+        cuda_kernel_many_ray(start_ray, end_ray, this->triangles, collisions);
         // for (size_t i = 0; i < near_nodes.size(); i++) {
         //     std::cout << start_ray[i].toString() << " -> " << end_ray[i].toString() << " : "<< collisions[i] << " | ";
         // }
@@ -304,7 +303,7 @@ bool RRTZ::collision(vec3 origin, vec3 end) {
     // get collisions from gpu
     bool ret;
     bool* ray_collision = &ret;
-    cuda_kernel_many_ray(start_ray, end_ray, this->triangles, ray_collision, nullptr);
+    cuda_kernel_many_ray(start_ray, end_ray, this->triangles, ray_collision);
 
     // cpu code:
     // for (size_t i = 0; i < this->obs.size(); i++) {

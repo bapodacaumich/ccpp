@@ -211,7 +211,7 @@ __global__ void ray_int_tri(
 // dims: viewpoints (x dim) x faces (y dim)
 // many origins, each mapped to an end point
 __global__ void ray_int_tri_many_2d(
-    bool *result, // flattened 2d
+    bool *result, // viewpoints
     vec3 *int_points, // flattened 2d
     const vec3 *starts,  // n_vp (vec3)
     // const vec3 *viewdirs, // n_vp (vec3)
@@ -244,7 +244,7 @@ __global__ void ray_int_tri_many_2d(
 
     // if ray is parallel to triangle
     if (a > -eps && a < eps) {
-        result[res_idx] = false;
+        // result[res_idx] = false; // assume initialized to false
         return;
     }
 
@@ -252,20 +252,20 @@ __global__ void ray_int_tri_many_2d(
     vec3 s = origin - tri[tri_idx].a;
     float u = f * s.dot(h);
     if (u < 0.0f || u > 1.0f) {
-        result[res_idx] = false;
+        // result[res_idx] = false; // assume initialized to false
         return;
     }
     vec3 q = s.cross(e1);
     float v = f * vec.dot(q);
     if (v < 0.0f || u + v > 1.0f) {
-        result[res_idx] = false;
+        // result[res_idx] = false; // assume initialized to false
         return;
     }
 
     // find intersection point
     float t = f * e2.dot(q);
     if (t < eps) {
-        result[res_idx] = false;
+        // result[res_idx] = false; // assume initialized to false
         return;
     }
 
@@ -277,11 +277,89 @@ __global__ void ray_int_tri_many_2d(
     // check if intersection point is between origin and end
     vec3 vec_dir = vec/vec.norm();
     if ((intPoint-origin).dot(vec_dir) < vec.norm() - eps && (intPoint-origin).dot(vec_dir) > 0) {
-        result[res_idx] = true;
+        result[vp_idx] = true;
         return;
     }
 
-    result[res_idx] = false;
+    // result[res_idx] = false; // assume initialized to false
+    return;
+}
+
+// dims: viewpoints (x dim) x faces (y dim)
+// many origins, each mapped to an end point
+__global__ void ray_int_tri_many_2d_odd(
+    bool *result, // viewopint size 1d
+    vec3 *int_points, // flattened 2d
+    const vec3 *starts,  // n_vp (vec3)
+    // const vec3 *viewdirs, // n_vp (vec3)
+    const vec3 *ends,    // n_vp (vec3)
+    size_t n_vp,
+    const Triangle *tri,// n_tri (1dim)
+    size_t n_tri
+    ) {
+
+    // epsilon for floating point comparison
+    float eps = 1e-6f;
+
+    // get indices
+    size_t vp_idx = blockIdx.x * blockDim.x + threadIdx.x; // n_tri
+    size_t tri_idx = blockIdx.y * blockDim.y + threadIdx.y; // n_tri
+    size_t res_idx = tri_idx * n_vp + vp_idx; // n_tri * n_vp
+
+    if (vp_idx > n_vp - 1 || tri_idx > n_tri - 1) { return; }
+
+    // instantiate ray
+    vec3 origin = starts[vp_idx];
+    vec3 end = ends[vp_idx];
+    vec3 vec = end - origin;
+
+    // look for any intersections between the ray and triangle
+    vec3 e1 = tri[tri_idx].b - tri[tri_idx].a;
+    vec3 e2 = tri[tri_idx].c - tri[tri_idx].a;
+    vec3 h = vec.cross(e2);
+    float a = e1.dot(h);
+
+    // if ray is parallel to triangle
+    if (a > -eps && a < eps) {
+        // result[res_idx] = false; // assume initialized to false
+        return;
+    }
+
+    float f = 1 / a;
+    vec3 s = origin - tri[tri_idx].a;
+    float u = f * s.dot(h);
+    if (u < 0.0f || u > 1.0f) {
+        // result[res_idx] = false;
+        return;
+    }
+    vec3 q = s.cross(e1);
+    float v = f * vec.dot(q);
+    if (v < 0.0f || u + v > 1.0f) {
+        // result[res_idx] = false; // assume initialized to false
+        return;
+    }
+
+    // find intersection point
+    float t = f * e2.dot(q);
+    if (t < eps) {
+        // result[res_idx] = false; // assume initialized to false
+        return;
+    }
+
+    vec3 intPoint = origin + vec * t;
+    if (int_points != nullptr) {
+        int_points[res_idx] = intPoint;
+    }
+
+    // check if intersection point is between origin and end
+    vec3 vec_dir = vec/vec.norm();
+    if ((intPoint-origin).dot(vec_dir) < vec.norm() - eps && (intPoint-origin).dot(vec_dir) > 0) {
+        result[vp_idx] = result[vp_idx] ? false : true; // true for an odd number of intersections
+        // result[res_idx] = true;
+        return;
+    }
+
+    // result[res_idx] = false; // assume initialized to false
     return;
 }
 
@@ -794,8 +872,7 @@ extern "C" void cuda_kernel_many_ray(
     const std::vector<vec3>& start_ray,
     const std::vector<vec3>& end_ray,
     const std::vector<Triangle*>& faces,
-    bool* collisions,
-    vec3** int_points
+    bool* collisions
     ) {
 
     // put viewpoints into arrays
@@ -806,8 +883,8 @@ extern "C" void cuda_kernel_many_ray(
     vec3 *ends = new vec3[n_ray];
     Triangle *tri = new Triangle[n_tri];
     bool *result_arr = new bool[n_ray];
-    bool *intersection_arr = new bool[n_ray * n_tri];
-    vec3 *result_int_points = new vec3[n_ray * n_tri];
+    // bool *intersection_arr = new bool[n_ray * n_tri];
+    // vec3 *result_int_points = new vec3[n_ray * n_tri];
 
     // thread, block size
     size_t thread_x = 32;
@@ -830,21 +907,22 @@ extern "C" void cuda_kernel_many_ray(
     vec3 *d_ends;
     Triangle *d_tri;
 
-    bool *d_intersections; // collisions per ray per triangle
+    // bool *d_intersections; // collisions per ray per triangle
     bool *d_result; // collisions per triangle
-    vec3 *d_int_points; // intersection points
+    // vec3 *d_int_points; // intersection points
 
     cudaMalloc(&d_starts, n_ray * sizeof(vec3));
     cudaMalloc(&d_ends, n_ray * sizeof(vec3));
     cudaMalloc(&d_tri, n_tri * sizeof(Triangle));
-    cudaMalloc(&d_intersections, n_ray * n_tri * sizeof(bool));
+    // cudaMalloc(&d_intersections, n_ray * n_tri * sizeof(bool));
     cudaMalloc(&d_result, n_ray * sizeof(bool));
-    cudaMalloc(&d_int_points, n_ray * n_tri * sizeof(vec3));
+    // cudaMalloc(&d_int_points, n_ray * n_tri * sizeof(vec3));
 
     // copy data to gpu
     cudaMemcpy(d_starts, starts, n_ray * sizeof(vec3), cudaMemcpyHostToDevice);
     cudaMemcpy(d_ends, ends, n_ray * sizeof(vec3), cudaMemcpyHostToDevice);
     cudaMemcpy(d_tri, tri, n_tri * sizeof(Triangle), cudaMemcpyHostToDevice);
+    cudaMemset(d_result, 0, n_ray * sizeof(bool));
 
     // set thread and block size
     dim3 threadsPerBlock(thread_x, thread_y, thread_z);
@@ -852,8 +930,10 @@ extern "C" void cuda_kernel_many_ray(
     // 2D blocks because 3d blocks can account for the 3rd dim by themselves
     dim3 numBlocks(int((n_ray + threadsPerBlock.x - 1) / threadsPerBlock.x), (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
     ray_int_tri_many_2d<<<numBlocks, threadsPerBlock>>>(
-        d_intersections, 
-        d_int_points,
+        // d_intersections, 
+        d_result,
+        // d_int_points,
+        nullptr,
         d_starts, 
         d_ends, 
         n_ray,
@@ -863,49 +943,49 @@ extern "C" void cuda_kernel_many_ray(
 
     cudaDeviceSynchronize();
 
-    cudaMemcpy(intersection_arr, d_intersections, n_ray * n_tri * sizeof(bool), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(intersection_arr, d_intersections, n_ray * n_tri * sizeof(bool), cudaMemcpyDeviceToHost);
 
-    // same as above but without the 3rd dimension
-    threadsPerBlock.x = 1024;
-    threadsPerBlock.y = 1;
-    threadsPerBlock.z = 1;
+    // // same as above but without the 3rd dimension
+    // threadsPerBlock.x = 1024;
+    // threadsPerBlock.y = 1;
+    // threadsPerBlock.z = 1;
 
-    // reusing numBlocks
-    numBlocks.x = (n_tri + threadsPerBlock.x - 1) / threadsPerBlock.x;
-    numBlocks.y = 1; // numBlocks.z is already 1
-    collision_or_2d<<<numBlocks, threadsPerBlock>>>(d_result, d_intersections, n_ray, n_tri);
+    // // reusing numBlocks
+    // numBlocks.x = (n_tri + threadsPerBlock.x - 1) / threadsPerBlock.x;
+    // numBlocks.y = 1; // numBlocks.z is already 1
+    // collision_or_2d<<<numBlocks, threadsPerBlock>>>(d_result, d_intersections, n_ray, n_tri);
 
-    cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
 
     cudaMemcpy(result_arr, d_result, n_ray * sizeof(bool), cudaMemcpyDeviceToHost);
-    cudaMemcpy(result_int_points, d_int_points, n_ray * n_tri * sizeof(vec3), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(result_int_points, d_int_points, n_ray * n_tri * sizeof(vec3), cudaMemcpyDeviceToHost);
 
     cudaFree(d_starts);
     cudaFree(d_ends);
     cudaFree(d_tri);
     cudaFree(d_result);
-    cudaFree(d_intersections);
-    cudaFree(d_int_points);
+    // cudaFree(d_intersections);
+    // cudaFree(d_int_points);
 
     for (size_t vp_idx=0; vp_idx < n_ray; vp_idx++) {
         collisions[vp_idx] = result_arr[vp_idx];
     }
 
-    if (int_points != nullptr) {
-        for (size_t ray_idx = 0; ray_idx < n_ray; ray_idx++){
-            for (size_t tri_idx = 0; tri_idx < n_tri; tri_idx++) {
-                size_t res_idx = tri_idx * n_ray + ray_idx;
-                int_points[ray_idx][tri_idx] = result_int_points[res_idx];
-            }
-        }
-    }
+    // if (int_points != nullptr) {
+    //     for (size_t ray_idx = 0; ray_idx < n_ray; ray_idx++){
+    //         for (size_t tri_idx = 0; tri_idx < n_tri; tri_idx++) {
+    //             size_t res_idx = tri_idx * n_ray + ray_idx;
+    //             int_points[ray_idx][tri_idx] = result_int_points[res_idx];
+    //         }
+    //     }
+    // }
 
     delete[] starts;
     delete[] ends;
     delete[] tri;
     delete[] result_arr;
-    delete[] intersection_arr;
-    delete[] result_int_points;
+    // delete[] intersection_arr;
+    // delete[] result_int_points;
 }
 
 
@@ -1074,7 +1154,7 @@ extern "C" void cuda_kernel_collision_points(
     vec3 *ends = new vec3[n_vp];
     Triangle *tri = new Triangle[n_tri];
     bool *result_arr = new bool[n_vp];
-    bool *intersection_arr = new bool[n_vp * n_tri];
+    // bool *intersection_arr = new bool[n_vp * n_tri];
     // vec3 *result_int_points = new vec3[n_vp * n_tri];
 
     // thread, block size
@@ -1100,7 +1180,7 @@ extern "C" void cuda_kernel_collision_points(
     vec3 *d_ends;
     Triangle *d_tri;
 
-    bool *d_intersections; // collisions per ray per triangle
+    // bool *d_intersections; // collisions per ray per triangle
     bool *d_result; // collisions per triangle
     // vec3 *d_int_points; // intersection points
 
@@ -1108,7 +1188,7 @@ extern "C" void cuda_kernel_collision_points(
     // cudaMalloc(&d_viewdirs, n_vp * sizeof(vec3));
     cudaMalloc(&d_ends, n_vp * sizeof(vec3));
     cudaMalloc(&d_tri, n_tri * sizeof(Triangle));
-    cudaMalloc(&d_intersections, n_vp * n_tri * sizeof(bool));
+    // cudaMalloc(&d_intersections, n_vp * n_tri * sizeof(bool));
     cudaMalloc(&d_result, n_vp * sizeof(bool));
     // cudaMalloc(&d_int_points, n_vp * n_tri * sizeof(vec3));
 
@@ -1117,14 +1197,16 @@ extern "C" void cuda_kernel_collision_points(
     // cudaMemcpy(d_viewdirs, viewdirs, n_vp * sizeof(vec3), cudaMemcpyHostToDevice);
     cudaMemcpy(d_ends, ends, n_vp * sizeof(vec3), cudaMemcpyHostToDevice);
     cudaMemcpy(d_tri, tri, n_tri * sizeof(Triangle), cudaMemcpyHostToDevice);
+    cudaMemset(d_result, 0, n_vp * sizeof(bool));
 
     // set thread and block size
     dim3 threadsPerBlock(thread_x, thread_y, thread_z);
 
     // 2D blocks because 3d blocks can account for the 3rd dim by themselves
     dim3 numBlocks(int((n_vp + threadsPerBlock.x - 1) / threadsPerBlock.x), (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
-    ray_int_tri_many_2d<<<numBlocks, threadsPerBlock>>>(
-        d_intersections, 
+    ray_int_tri_many_2d_odd<<<numBlocks, threadsPerBlock>>>(
+        // d_intersections, 
+        d_result,
         nullptr,
         // d_int_points, 
         d_starts, 
@@ -1137,25 +1219,25 @@ extern "C" void cuda_kernel_collision_points(
 
     // cudaDeviceSynchronize();
 
-    cudaMemcpy(intersection_arr, d_intersections, n_vp * n_tri * sizeof(bool), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(intersection_arr, d_intersections, n_vp * n_tri * sizeof(bool), cudaMemcpyDeviceToHost);
     // cudaMemcpy(result_int_points, d_int_points, n_vp * n_tri * sizeof(vec3), cudaMemcpyDeviceToHost);
 
-    // same as above but without the 3rd dimension
-    threadsPerBlock.x = 1024;
-    threadsPerBlock.y = 1;
-    threadsPerBlock.z = 1;
+    // // same as above but without the 3rd dimension
+    // threadsPerBlock.x = 1024;
+    // threadsPerBlock.y = 1;
+    // threadsPerBlock.z = 1;
 
-    // reusing numBlocks
-    numBlocks.x = (n_tri + threadsPerBlock.x - 1) / threadsPerBlock.x;
-    numBlocks.y = 1; // numBlocks.z is already 1
-    collision_odd<<<numBlocks, threadsPerBlock>>>(
-        d_result, 
-        d_intersections, 
-        n_vp, 
-        n_tri
-    );
+    // // reusing numBlocks
+    // numBlocks.x = (n_tri + threadsPerBlock.x - 1) / threadsPerBlock.x;
+    // numBlocks.y = 1; // numBlocks.z is already 1
+    // collision_odd<<<numBlocks, threadsPerBlock>>>(
+    //     d_result, 
+    //     d_intersections, 
+    //     n_vp, 
+    //     n_tri
+    // );
 
-    // cudaDeviceSynchronize();
+    // // cudaDeviceSynchronize();
 
     cudaMemcpy(result_arr, d_result, n_vp * sizeof(bool), cudaMemcpyDeviceToHost);
 
@@ -1164,7 +1246,7 @@ extern "C" void cuda_kernel_collision_points(
     cudaFree(d_ends);
     cudaFree(d_tri);
     cudaFree(d_result);
-    cudaFree(d_intersections);
+    // cudaFree(d_intersections);
     // cudaFree(d_int_points);
 
     for (size_t vp_idx=0; vp_idx < n_vp; vp_idx++) {
@@ -1196,7 +1278,7 @@ extern "C" void cuda_kernel_collision_points(
     delete[] ends;
     delete[] tri;
     delete[] result_arr;
-    delete[] intersection_arr;
+    // delete[] intersection_arr;
     // delete[] result_int_points;
 }
 

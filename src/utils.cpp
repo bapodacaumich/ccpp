@@ -10,6 +10,7 @@
 #include "viewpoint_struct.hpp"
 #include "viewpoint_coverage_gain_struct.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
