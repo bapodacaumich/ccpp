@@ -146,8 +146,11 @@ int main(int argc, char** argv) {
     //     // saveCSV("../data/coverage_viewpoint_sets/" + std::to_string(static_cast<int>(vgd)) + "m_global_coverage.csv", final_coverage_data);
     // }
     // Compute cost matrix for travelling salesman problem for all viewpoints
-    Viewpoint start = Viewpoint( vec3(1.8f, 4.7f, 2.7f), vec3(0.0f, 0.0f, -1.0f), 2);
-    size_t rrtz_iter = 1000;
+    // Viewpoint start = Viewpoint( vec3(1.8f, 4.7f, 2.7f), vec3(0.0f, 0.0f, -1.0f), 2);
+
+    // new start for scaled up station
+    Viewpoint start = Viewpoint( vec3(-5.0f, -2.0f, 3.0f), vec3(1.0f, 0.0f, 0.0f), 2);
+    size_t rrtz_iter = 2000;
     CostMatrix cm(rrtz_iter);
     std::cout << "loading viewpoints" << std::endl;
     std::string viewpoint_file;
