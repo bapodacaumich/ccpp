@@ -334,10 +334,14 @@ void loadConvexStationOBS(std::vector<OBS>& obsVec, float scale) {
         std::vector<Triangle> tris;
         convertFlatToTriangle(tri_data, tris, i);
 
-        vec3 offset = vec3(2.529f, 4.821f, 2.591f);
+        vec3 offset = vec3(-0.091745f,-0.326011f,0.148212f);
 
-        // change offset to reflect center of gravity
-        offset -= vec3(2.92199515f, 5.14701097f, 2.63653781f);
+        // vec3 offset = vec3(2.529f, 4.821f, 2.591f);
+        // offset += vec3(1.205f/4, 0.0f, 0.775f/4);
+
+        // // change offset to reflect center of gravity
+        // offset -= vec3(2.92199515f, 5.14701097f, 2.63653781f);
+        // std::cout << "convex offset =" << offset.toString() << std::endl;
 
         for (size_t j = 0; j < tris.size(); j++) {
             tris[j].n = tris[j].n / tris[j].n.norm();
@@ -825,4 +829,83 @@ void batch_incidence_angle(const std::vector<Viewpoint>& viewpoints, const std::
     }
     displayProgressBar(1.0, 150, message);
     std::cout << std::endl;
+}
+
+float compute_coverage_path(const std::string& file) {
+    // load in solution
+    std::vector<std::vector<float>> path_data;
+    loadCSV("../knot_ocp/packaged_paths/" + file, path_data, 7);
+    // loadCSV("../knot_ocp/packaged_paths/k_1000_0_f_0_001_.csv", path_data, 7);
+
+    // load in station
+    std::vector<OBS> obsVec;
+    loadStationOBS(obsVec, 4);
+
+    // get viewpoints
+    std::vector<Viewpoint> vps;
+    for (size_t i = 0; i < path_data.size(); i++) {
+        vec3 pose = vec3(path_data[i][0], path_data[i][1], path_data[i][2]);
+        vec3 viewdir = vec3(path_data[i][3], path_data[i][4], path_data[i][5]);
+        Viewpoint vp = Viewpoint(pose, viewdir, 0);
+        vps.push_back(vp);
+    }
+
+    // get faces:
+    std::vector<Triangle*> faces;
+    for (size_t i = 0; i < obsVec.size(); i++) {
+        for (size_t j = 0; j < obsVec[i].faces.size(); j++) {
+            faces.push_back(&(obsVec[i].faces[j]));
+        }
+    }
+
+    // check coverage
+    std::vector<bool> covered(faces.size(), false);
+    for (size_t i = 0; i < vps.size(); ++i) {
+        std::vector<bool> coverage;
+        cuda_kernel_coverage(vps[i], faces, coverage);
+        for (size_t j = 0; j < coverage.size(); j++) {
+            coverage[j] = !coverage[j];
+        }
+        for (size_t tridx = 0; tridx < coverage.size(); tridx++) {
+            if (coverage[tridx]) {
+                covered[tridx] = true;
+            }
+        }
+    }
+
+    // print coverage
+    size_t num_covered = 0;
+    for (size_t i = 0; i < covered.size(); i++) {
+        if (covered[i]) {
+            num_covered++;
+        }
+    }
+    return static_cast<float>(num_covered) / static_cast<float>(faces.size());
+}
+
+std::string getnum(float num) {
+    float rem = (num - static_cast<int>(num));
+    // std::cout << " rem=" << rem << " round=" << std::round(rem*1000 + 0.5);
+    std::string rem_str = std::to_string(static_cast<int>(std::round(rem*1000)));
+    size_t num_zeros = 3 - rem_str.size();
+    if (num_zeros > 0) {
+        for (size_t i = 0; i < num_zeros; i++) {
+            rem_str = "0" + rem_str;
+        }
+    }
+    rem_str = removeTrailingZeros(rem_str);
+    return std::to_string(static_cast<int>(num)) + "_" + rem_str;
+
+}
+
+std::string removeTrailingZeros(const std::string& str) {
+    std::string result = str;
+    result.erase(result.find_last_not_of('0') + 1, std::string::npos);
+
+    // If the resulting string is empty or contains only a decimal point, return "0"
+    if (result.empty() || result == ".") {
+        return "0";
+    }
+
+    return result;
 }

@@ -20,6 +20,7 @@ class ViewpointGenerator {
         // );
         ViewpointGenerator(
             std::vector<OBS> structure,
+            std::vector<OBS> convex_structure,
             float vgd=2.0f,
             float inc_angle_max=70.0f * M_PI / 180.0f,
             float inc_improvement_minimum=70.0f * M_PI / 180.0f,
@@ -49,9 +50,12 @@ class ViewpointGenerator {
         float inc_improvement_minimum;
         float inc_improvement_threshold;
         size_t num_mesh_faces;
+        size_t num_convex_mesh_faces;
 
         std::vector<OBS> structure;
+        std::vector<OBS> convex_structure;
         std::vector<Triangle*> all_faces;
+        std::vector<Triangle*> all_convex_faces;
         std::vector<Viewpoint> unfiltered_viewpoints;
         std::vector<Viewpoint> coverage_viewpoints;
         std::vector<bool> filtered_coverage; // coverage of 'coverage_viewpoints'

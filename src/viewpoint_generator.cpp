@@ -16,6 +16,7 @@ ViewpointGenerator::ViewpointGenerator() {
     // default constructor -- useless to do this
     this->vgd = 2.0f;
     this->structure = std::vector<OBS>();
+    this->convex_structure = std::vector<OBS>();
     this->unfiltered_viewpoints = std::vector<Viewpoint>();
     this->coverage_viewpoints = std::vector<Viewpoint>();
     this->coverage_map = std::vector<std::vector<bool>>();
@@ -54,6 +55,7 @@ ViewpointGenerator::ViewpointGenerator() {
 
 ViewpointGenerator::ViewpointGenerator(
     std::vector<OBS> structure,
+    std::vector<OBS> convex_structure,
     float vgd,
     float inc_angle_max,
     float inc_improvement_minimum,
@@ -62,6 +64,7 @@ ViewpointGenerator::ViewpointGenerator(
 
     // initialize members
     this->structure = structure;
+    this->convex_structure = convex_structure;
     this->vgd = vgd;
     this->inc_angle_max = inc_angle_max;
     this->inc_improvement_threshold = inc_improvement_threshold;
@@ -741,6 +744,12 @@ void ViewpointGenerator::countMeshFaces() {
             this->all_faces.push_back(&(this->structure[obs_idx].faces[face_idx]));
         }
     }
+    for (size_t obs_idx = 0; obs_idx < this->convex_structure.size(); obs_idx++) {
+        this->num_convex_mesh_faces += this->convex_structure[obs_idx].faces.size();
+        for (size_t face_idx = 0; face_idx < this->convex_structure[obs_idx].faces.size(); face_idx++) {
+            this->all_convex_faces.push_back(&(this->convex_structure[obs_idx].faces[face_idx]));
+        }
+    }
 }
 
 bool ViewpointGenerator::populateViewpoints() {
@@ -811,11 +820,6 @@ bool ViewpointGenerator::populateViewpoints() {
         // sampled_face_indices.push_back(face_idx);
     }
 
-    bool* collisions = new bool[sampled_viewpoints.size()];
-    for (size_t i = 0; i < sampled_viewpoints.size(); i++) {
-        collisions[i] = false;
-    }
-
     // // debug int points
     // vec3 **int_points = new vec3*[sampled_viewpoints.size()];
     // for (size_t i = 0; i < sampled_viewpoints.size(); i++) {
@@ -824,6 +828,16 @@ bool ViewpointGenerator::populateViewpoints() {
     //         int_points[i][j].set(0.0f, 0.0f, 0.0f);
     //     }
     // }
+
+    // need to test viewpoints against 
+    // check each viewpoint-face combination for ray casting collisions
+    std::vector<bool> in_collision_convex;
+    cuda_kernel_collision_points(
+        sampled_viewpoints,
+        this->all_convex_faces,
+        vec3(1e9f, 1e9f, 1e9f), // needs to be collision free
+        in_collision_convex
+    );
 
 
     // check each viewpoint-face combination for ray casting collisions
@@ -836,7 +850,7 @@ bool ViewpointGenerator::populateViewpoints() {
     );
 
     for (size_t i = 0; i < sampled_viewpoints.size(); i++) {
-        if (!in_collision[i]) {
+        if (!in_collision[i] && !in_collision_convex[i]) {
             // std::cout << "Viewpoint " << sampled_viewpoints[i].pose.toString() << " is not in collision" << std::endl;
             this->unfiltered_viewpoints.push_back(sampled_viewpoints[i]);
             num_successful_viewpoints++;
