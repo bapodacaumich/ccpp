@@ -47,7 +47,7 @@ void cw_acceleration(vec3& acceleration, vec3 pose, vec3 velocity);
 float cw_cost(vec3 start, vec3 end, float speed, size_t N);
 float fuel_cost(vec3 pose, vec3 v0, vec3 v1, float speed, float dt);
 void batch_incidence_angle(const std::vector<Viewpoint>& viewpoints, const std::vector<Triangle*>& triangles, std::vector<std::vector<float>>& inc_angle_map);
-float compute_coverage_path(const std::string& file);
+float compute_coverage_path(const std::string& file, std::vector<bool>& coverage);
 std::string getnum(float num);
 std::string removeTrailingZeros(const std::string& str);
 
