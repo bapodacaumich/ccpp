@@ -831,7 +831,7 @@ void batch_incidence_angle(const std::vector<Viewpoint>& viewpoints, const std::
     std::cout << std::endl;
 }
 
-float compute_coverage_path(const std::string& file, std::vector<bool> coverage) {
+float compute_coverage_path(const std::string& file, std::vector<bool>& coverage) {
     // load in solution
     std::vector<std::vector<float>> path_data;
     loadCSV("../knot_ocp/packaged_paths/" + file, path_data, 7);
@@ -880,7 +880,7 @@ float compute_coverage_path(const std::string& file, std::vector<bool> coverage)
         }
     }
     coverage=covered;
-    return static_cast<float>(num_covered) / static_cast<float>(faces.size());
+    return static_cast<float>(num_covered) / static_cast<float>(faces.size() - 50);
 }
 
 std::string getnum(float num) {
