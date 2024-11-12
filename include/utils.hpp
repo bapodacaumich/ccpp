@@ -47,8 +47,17 @@ void cw_acceleration(vec3& acceleration, vec3 pose, vec3 velocity);
 float cw_cost(vec3 start, vec3 end, float speed, size_t N);
 float fuel_cost(vec3 pose, vec3 v0, vec3 v1, float speed, float dt);
 void batch_incidence_angle(const std::vector<Viewpoint>& viewpoints, const std::vector<Triangle*>& triangles, std::vector<std::vector<float>>& inc_angle_map);
-float compute_coverage_path(const std::string& file, std::vector<bool>& coverage);
+float compute_fuel_cost_path(const std::string& ufile, const std::string& tfile, float Isp=80, float m=5);
+float compute_pathtime_path(const std::string& tfile);
+void get_uncoverable_faces(std::vector<OBS>& obsVec, std::vector<size_t>& uncoverable);
+void orientation_moving_average(const std::vector<std::vector<float>> &path_data, std::vector<std::vector<float>> & smoothed_path, size_t window_size=5);
+void compute_saturation_path(const std::vector<std::vector<float>> &path_data, std::vector<std::vector<float>> &saturation_map);
+float compute_coverage_path(const std::vector<std::vector<float>> &path_data, std::vector<bool>& coverage);
+float compute_coverage_file(const std::string& file, std::vector<bool>& coverage);
+float compute_smoothed_coverage(const std::vector<std::vector<float>> &path_data, std::vector<bool>& coverage);
 std::string getnum(float num);
 std::string removeTrailingZeros(const std::string& str);
+
+vec3 slerp(vec3 v0, vec3 v1, float t);
 
 #endif // UTILS_HPP

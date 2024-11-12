@@ -53,6 +53,14 @@ extern "C" void cuda_kernel_many(
     vec3** int_points
 );
 
+// given a list of start points, single endpoint, list of faces, determine if each startpoint-endpoint combination is in collision with the faces
+extern "C" void cuda_kernel_collision_points_vec3(
+    const std::vector<vec3>& triangle_points,
+    const std::vector<Triangle*>& faces,
+    const vec3 free_space_point,
+    std::vector<bool>& in_collision // number of collisions
+);
+
 // given a list of viewpoints and triangles and a point in the free space, determine if each viewpoint is in collision
 // * even number of intersections between viewpoint and free space point means no collision
 extern "C" void cuda_kernel_collision_points(

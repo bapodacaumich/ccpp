@@ -1138,6 +1138,91 @@ extern "C" void cuda_kernel_many(
     delete[] result_int_points;
 }
 
+extern "C" void cuda_kernel_collision_points_vec3(
+    const std::vector<vec3>& triangle_points,
+    const std::vector<Triangle*>& faces,
+    const vec3 free_space_point,
+    std::vector<bool>& in_collision // number of collisions
+    ) {
+
+    // put viewpoints into arrays
+    size_t n_tri = faces.size();
+    size_t n_vp = triangle_points.size();
+
+    vec3 *starts = new vec3[n_vp];
+    vec3 *ends = new vec3[n_vp];
+    Triangle *tri = new Triangle[n_tri];
+    bool *result_arr = new bool[n_vp];
+
+    // thread, block size
+    size_t thread_x = 32;
+    size_t thread_y = 32;
+    size_t thread_z = 1;
+
+    // put faces into array
+    for (size_t i = 0; i < n_tri; i++) {
+        tri[i] = *faces[i];
+    }
+
+    // put viewpoints into array
+    for (size_t vp_idx = 0; vp_idx < n_vp; vp_idx++) {
+        starts[vp_idx] = triangle_points[vp_idx];
+        ends[vp_idx] = free_space_point;
+    }
+
+    // allocate gpu memory
+    vec3 *d_starts;
+    vec3 *d_ends;
+    Triangle *d_tri;
+
+    bool *d_result; // collisions per triangle
+
+    cudaMalloc(&d_starts, n_vp * sizeof(vec3));
+    cudaMalloc(&d_ends, n_vp * sizeof(vec3));
+    cudaMalloc(&d_tri, n_tri * sizeof(Triangle));
+    cudaMalloc(&d_result, n_vp * sizeof(bool));
+
+    // copy data to gpu
+    cudaMemcpy(d_starts, starts, n_vp * sizeof(vec3), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_ends, ends, n_vp * sizeof(vec3), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_tri, tri, n_tri * sizeof(Triangle), cudaMemcpyHostToDevice);
+    cudaMemset(d_result, 0, n_vp * sizeof(bool));
+
+    // set thread and block size
+    dim3 threadsPerBlock(thread_x, thread_y, thread_z);
+
+    // 2D blocks because 3d blocks can account for the 3rd dim by themselves
+    dim3 numBlocks(int((n_vp + threadsPerBlock.x - 1) / threadsPerBlock.x), (n_tri + threadsPerBlock.y - 1) / threadsPerBlock.y, 1);
+    ray_int_tri_many_2d_odd<<<numBlocks, threadsPerBlock>>>(
+        d_result,
+        nullptr,
+        d_starts, 
+        d_ends,
+        n_vp,
+        d_tri, 
+        n_tri
+    );
+    cudaMemcpy(result_arr, d_result, n_vp * sizeof(bool), cudaMemcpyDeviceToHost);
+
+    cudaFree(d_starts);
+    cudaFree(d_ends);
+    cudaFree(d_tri);
+    cudaFree(d_result);
+
+    for (size_t vp_idx=0; vp_idx < n_vp; vp_idx++) {
+        in_collision.push_back(result_arr[vp_idx]);
+        if (result_arr[vp_idx]) {
+            std::cout << "Collision detected for viewpoint " << vp_idx << std::endl;
+        }
+    }
+
+    delete[] starts;
+    delete[] ends;
+    delete[] tri;
+    delete[] result_arr;
+}
+
+
 extern "C" void cuda_kernel_collision_points(
     const std::vector<Viewpoint>& viewpoints,
     const std::vector<Triangle*>& faces,
