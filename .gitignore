@@ -24,3 +24,6 @@
 /visualization_python/animation/**
 /visualization_python/animation/*
 /visualization_python/animation/
+/visualization_python/figures/**
+/visualization_python/figures/*
+/visualization_python/figures/

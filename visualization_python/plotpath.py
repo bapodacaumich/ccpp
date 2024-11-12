@@ -1,22 +1,50 @@
 from station import visualize_station
-from utils import plot_path_direct, save_animation
+from utils import plot_path_direct, save_animation, plot_cw_opt_path, set_aspect_equal_3d, plot_packaged_path, plot_viewpoints
 from matplotlib import pyplot as plt
 import os
 import numpy as np
 
 
-def plotpath():
-    vgd = '2m'
-    ax = visualize_station(coverage_file= vgd + '_global_coverage.csv')
-    # ax = visualize_station(coverage_file=None)
+def plotpath(vgd, local, condition='ocp'):
+    local_txt = '_local' if local else '_global'
+    print( 'Plotting path for', vgd + local_txt, ' condition:', condition)
+    # ax = visualize_station(coverage_file= vgd + '_global_coverage.csv', vx=False)
+    ax = visualize_station(coverage_file=None, convex=False, vx=False)
+    # ax = visualize_station(coverage_file=None, convex=True, vx=False)
+    # ax = visualize_station(coverage_file=None, convex=False, vx=False, original=True, ax=ax)
+    # ax = visualize_station(coverage_file=condition + '/' + vgd+local_txt+'_cov.csv', convex=False, vx=False, final=True)
+
+    if condition[0] == 'i':
+        soln_folder = 'cw_opt_packaged_' + condition.split('_')[1]
+    else: # condition is ocp
+        soln_folder = 'pf_final'
+    ax = plot_packaged_path(soln_folder, vgd + local_txt + '.csv', ax=ax, plot_dir=True)
+    ax = plot_viewpoints(ax, vgd, local, connect=True)
     # ax = plot_path_direct('unfiltered_viewpoints', 'unfiltered_viewpoints_' + vgd + '.csv', ax=ax)
-    ax = plot_path_direct('coverage_viewpoint_sets', 'coverage_' + vgd + '_global_vp_set.csv', ax=ax)
+    # ax = plot_path_direct('coverage_viewpoint_sets', 'coverage_' + vgd + '_local_vp_set.csv', ax=ax, ordered=False, local=True)
+    # ax.legend()
+    # ax = plot_path_direct('ordered_viewpoints', vgd + local_txt + '.csv', ax=ax, ordered=True, local=local)
+    # ax = plot_cw_opt_path(ax, vgd + local_txt)
     # ax.set_xlabel('X')
     # ax.set_ylabel('Y')
     # ax.set_zlabel('Z')
     # ax = plot_path_direct('ordered_viewpoints', vgd + '.csv', ax=ax)
     # plt.savefig('4m_unfiltered.png', dpi=300)
-    # save_animation(ax, '2m_unfiltered')
+    ax.view_init(elev=30, azim=30)
+    ax.dist = 5
+    ax.set_axis_off()
+
+    set_aspect_equal_3d(ax)
+    # save_animation(ax, vgd + local_txt + '_ocp')
+
+
+    # dir = os.path.join(os.getcwd(), 'figures', condition)
+    # if not os.path.exists(dir): os.makedirs(dir)
+    # plt.savefig(os.path.join(os.getcwd(), 'figures', condition, vgd + local_txt + '.png'), dpi=600)
+    # plt.savefig(os.path.join(os.getcwd(), 'figures', 'ordered_vps', vgd + local_txt + '.png'), dpi=600)
+    # plt.tight_layout()
+    plt.show()
+    # plt.close('all')
 
     # debug coverage
     # vp0 = np.array([0.574084,6.236693,6.799296, 0.489475,0.033094,-0.871389])
@@ -39,7 +67,14 @@ def plotpath():
     # ax.set_xlabel('X')
     # ax.set_ylabel('Y')
     # ax.set_zlabel('Z')
-    plt.show()
+    # plt.show()
 
 if __name__ == "__main__":
-    plotpath()
+    condition = 'ocp'
+    # vgds = ['2m', '4m', '8m', '16m']
+    vgds = ['4m']
+    locals = [True, False]
+    for vgd in vgds:
+        for local in locals:
+            plotpath(vgd, local, condition=condition)
+    # plotpath()
