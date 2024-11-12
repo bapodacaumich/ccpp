@@ -1,5 +1,5 @@
 from station import visualize_station
-from utils import plot_path_direct, save_animation
+from utils import plot_path_direct, save_animation, plot_packaged_path
 from matplotlib import pyplot as plt
 import os
 import numpy as np

@@ -18,6 +18,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -255,7 +256,8 @@ void saveCSV(const std::string& filename, const std::vector<std::vector<float>>&
         // Iterate over the columns
         size_t n_cols = data[i].size();
         for (size_t j = 0; j < n_cols; ++j) {
-            file << std::fixed << std::setprecision(6) << data[i][j]; // Write value
+            // file << std::fixed << std::setprecision(6) << data[i][j]; // Write value
+            file << std::fixed << std::setprecision(std::numeric_limits<float>::max_digits10) << data[i][j];
             if (j < n_cols - 1) {
                 file << ","; // Separate values with a comma
             }
@@ -702,10 +704,22 @@ void pinhole_camera_test(
 }
 
 void cw_acceleration(vec3& acceleration, vec3 point, vec3 velocity) {
-    // compute cost to oppose CW disturbance from start to end at speed.
-    // n = number of discretization steps to take -- inclusive
+    // compute cw acceleration at a point with velocity
 
-    // this->speed;
+    float mu = 3.986e14; // gravitational parameter
+    float a = 6.778137e6; // semi-major axis
+    float n = std::sqrt(mu / (a * a * a)); // orbital rate 
+
+    // compute drift acceleration
+    acceleration.x = 3 * n * n * point.x + 2 * n * velocity.y;
+    acceleration.y = -2 * n * velocity.x;
+    acceleration.z = -1 * n * n * point.z;
+}
+
+float cw_dv(vec3 start, vec3 end, float speed, size_t N) {
+    // integrate cw drift opposition delta-v from start to end at speed 
+    // N = number of discretization steps to take -- inclusive
+
     float mu = 3.986e14; // gravitational parameter
     float a = 6.778137e6; // semi-major axis
     float n = std::sqrt(mu / (a * a * a)); // orbital rate 
@@ -714,22 +728,25 @@ void cw_acceleration(vec3& acceleration, vec3 point, vec3 velocity) {
     // float Isp = 80; // specific impulse
 
     std::vector<vec3> displacement;
+    vec3 velocity = (end - start) / (end - start).norm() * speed;
+    std::vector<vec3> acceleration;
+
+    // calculate the displacement vector
+    for (size_t i = 0; i < N; i++) {
+        float t = static_cast<float>(i) / static_cast<float>(N);
+        vec3 point = start * (1 - t) + end * t;
+        displacement.push_back(point);
+    }
 
     // compute drift acceleration
-    acceleration.x = 3 * n * n * point.x + 2 * n * velocity.y;
-    acceleration.y = -2 * n * velocity.x;
-    acceleration.z = -1 * n * n * point.z;
-
-    // // compute cost
-    // float impulse = 0;
-    // float dt = (end - start).norm() / speed / (N - 1);
-    // for (size_t i = 0; i < N; i++) {
-    //     impulse += acceleration[i].norm() * std::sqrt(dt);
-    // }
-
-    // float cost = impulse * m / (g0 * Isp);
-
-    // return cost;
+    for (size_t i = 0; i < N; i++) {
+        vec3 acc;
+        acc.x = 3 * n * n * displacement[i].x + 2 * n * velocity.y;
+        acc.y = -2 * n * velocity.x;
+        acc.z = -1 * n * n * displacement[i].z;
+        acceleration.push_back(acc);
+    }
+    return 0;
 }
 
 float cw_cost(vec3 start, vec3 end, float speed, size_t N) {
@@ -831,10 +848,217 @@ void batch_incidence_angle(const std::vector<Viewpoint>& viewpoints, const std::
     std::cout << std::endl;
 }
 
-float compute_coverage_path(const std::string& file, std::vector<bool>& coverage) {
+float compute_fuel_cost_path(const std::string& ufile, const std::string& tfile, float Isp, float m) {
     // load in solution
-    std::vector<std::vector<float>> path_data;
-    loadCSV("../knot_ocp/packaged_paths/" + file, path_data, 7);
+    std::vector<std::vector<float>> force_data;
+    loadCSV("../knot_ocp/ocp_paths/" + ufile, force_data, 3, ' '); // force input
+
+    std::vector<std::vector<float>> time_data;
+    loadCSV("../knot_ocp/ocp_paths/" + tfile, time_data, 1); // timestamps
+
+    std::vector<float> dt;
+    for (size_t i = 0; i < time_data.size() - 1; i++) {
+        dt.push_back(time_data[i+1][0] - time_data[i][0]);
+    }
+
+
+    // integrate force 
+    float dv_tot = 0;
+    for (size_t i = 0; i < force_data.size()-1; i++) {
+        vec3 dv = {
+            force_data[i][0] * dt[i] / m,
+            force_data[i][1] * dt[i] / m,
+            force_data[i][2] * dt[i] / m,
+        };
+        dv_tot += dv.norm();
+    }
+    float fuel_cost = m * std::exp(dv_tot / (9.81 * Isp)) - m; // in kg
+    return fuel_cost * 1000; // convert to grams
+}
+
+float compute_pathtime_path(const std::string& tfile) {
+    std::vector<std::vector<float>> time_data;
+    loadCSV("../knot_ocp/ocp_paths/" + tfile, time_data, 1); // timestamps
+    return time_data[time_data.size()-1][0]; // last element
+}
+
+void get_uncoverable_faces(std::vector<OBS>& obsVec, std::vector<size_t>& uncoverable) {
+    // clear uncoverables:
+    uncoverable.clear();
+
+    // for module, find the 'start' index for proper face indexing
+    size_t start_idx = 0;
+    for (size_t i = 0; i < obsVec.size(); i++) {
+        // for each obstacle, check if each vertex is outside other obstacles
+
+        // first get all vertices with face memberships
+        std::vector<vec3> vertices;
+        for (size_t j = 0; j < obsVec[i].faces.size(); j++) {
+            vertices.push_back( obsVec[i].faces[j].a );
+            vertices.push_back( obsVec[i].faces[j].b );
+            vertices.push_back( obsVec[i].faces[j].c );
+        }
+
+        vertices[0].x = -0.1f;
+        vertices[0].y = 0.0f;
+        vertices[0].z = 0.3f;
+
+        std::vector<Triangle*> faces_wo_module;
+        for (size_t k = 0; k < obsVec.size(); k++) {
+            if (k != i) {
+                for (size_t j = 0; j < obsVec[k].faces.size(); j++) {
+                    faces_wo_module.push_back(&(obsVec[k].faces[j]));
+                }
+            }
+        }
+
+        std::vector<bool> in_collision_convex;
+        cuda_kernel_collision_points_vec3(
+            vertices,
+            faces_wo_module,
+            vec3(1e9f, 1e9f, 1e9f), // needs to be collision free
+            in_collision_convex
+        );
+
+        for (size_t j = 0; j < in_collision_convex.size(); j++) {
+            if (in_collision_convex[j]) {
+                std::cout << "uncoverable face: " << start_idx + (j/3) << std::endl; // integer division to get index of triangle
+                uncoverable.push_back(start_idx + (j/3)); // integer division to get index of triangle
+            }
+        }
+
+        start_idx += obsVec[i].faces.size();
+    }
+}
+
+void orientation_moving_average(const std::vector<std::vector<float>> &path_data, std::vector<std::vector<float>> & smoothed_path, size_t window_size) {
+    // clear smoothed path
+    smoothed_path.clear();
+    // moving average of orientation data
+    for (size_t i = 0; i < path_data.size(); i++) {
+        std::vector<float> smoothed_row(7);
+        for (size_t j = 0; j < path_data[i].size(); j++) {
+            if (j < 3 || j > 5) {
+                smoothed_row[j] = path_data[i][j];
+            } else {
+                size_t start_idx = (i < window_size) ? 0 : i - window_size;
+                size_t end_idx = ((i + window_size) > (path_data.size())) ? path_data.size() : i + window_size;
+                for (size_t k = start_idx; k < end_idx; k++) {
+                    smoothed_row[j] += path_data[k][j];
+                }
+                smoothed_row[j] /= (end_idx - start_idx);
+            }
+        }
+        float norm = std::sqrt(smoothed_row[3] * smoothed_row[3] + smoothed_row[4] * smoothed_row[4] + smoothed_row[5] * smoothed_row[5]);
+        smoothed_row[3] /= norm;
+        smoothed_row[4] /= norm;
+        smoothed_row[5] /= norm;
+        smoothed_path.push_back(smoothed_row);
+    }
+}
+
+void compute_saturation_path(const std::vector<std::vector<float>> &path_data, std::vector<std::vector<float>> &saturation_map) {
+    // saturation map tracks the number of times a face is seen from the path, closest distance seen from, average incidence angle, and minimum incidence angle
+    // number of times a face is visible -- count
+    // how far it is seen -- take min of distance * don't need this for now
+    // average incidence angle --  sum of angles / count
+    // minimum incidence angle -- min of each new angle
+    // saturation_map = {count, avg_angle, min_angle}
+
+    // clear saturation map
+    saturation_map.clear();
+
+    // load in station
+    std::vector<OBS> obsVec;
+    loadStationOBS(obsVec, 4);
+
+    // get viewpoints
+    std::vector<Viewpoint> vps;
+    for (size_t i = 0; i < path_data.size(); i++) {
+        vec3 pose = vec3(path_data[i][0], path_data[i][1], path_data[i][2]);
+        vec3 viewdir = vec3(path_data[i][3], path_data[i][4], path_data[i][5]);
+        Viewpoint vp = Viewpoint(pose, viewdir, 0);
+        vps.push_back(vp);
+    }
+
+
+    // get faces:
+    std::vector<Triangle*> all_faces;
+    for (size_t i = 0; i < obsVec.size(); i++) {
+        for (size_t j = 0; j < obsVec[i].faces.size(); j++) {
+            all_faces.push_back(&(obsVec[i].faces[j]));
+        }
+    }
+
+    // set up saturation map. resizing from zero sets all elements to val below
+    saturation_map.resize(all_faces.size(), {0.0f, 0.0f, std::numeric_limits<float>::max()});
+
+    // check coverage
+    for (size_t i = 0; i < vps.size(); ++i) {
+        // get coverage for this viewpoint
+        std::vector<bool> coverage;
+        cuda_kernel_coverage(vps[i], all_faces, coverage);
+
+        // get incidence angles for this viewpoint
+        std::vector<Viewpoint> vp = {vps[i]};
+        std::vector<std::vector<float>> inc_angles;
+        cuda_kernel_inc_angle(vp, all_faces, inc_angles); // result is n_vp x n_tri. n_vp = 1 so ize = 1 x n_tri
+
+
+        // true means not visible (intersection before end of ray)
+        for (size_t j = 0; j < coverage.size(); j++) {
+            coverage[j] = !coverage[j];
+        }
+
+        for (size_t tridx = 0; tridx < coverage.size(); tridx++) {
+            // if inc angle is valid -- between 0 and 90 degrees
+            // AND face is visible
+            if (coverage[tridx] && inc_angles[0][tridx] > 0 && inc_angles[0][tridx] < M_PI/2) {
+                // increment count 
+                saturation_map[tridx][0] += 1.0f;
+
+                // accumulate incidence angles
+                saturation_map[tridx][1] += inc_angles[0][tridx];
+
+                // update min angle
+                if (inc_angles[0][tridx] < saturation_map[tridx][2]) {
+                    saturation_map[tridx][2] = inc_angles[0][tridx];
+                }
+            }
+        }
+
+        double progress = static_cast<double>(i) / vps.size();
+        std::ostringstream message;
+        message.str("");
+        displayProgressBar(progress, 100, message);
+    }
+
+    std::vector<size_t>  uncoverable = { 148, 152, 156, 158, 186, 190, 194, 196, 230, 231, 234, 235, 260, 272, 305, 316, 318, 333, 334, 380, 381, 392, 393, 396, 397, 422, 467, 478, 480, 495, 496, 728, 730, 733, 735, 744, 745, 746, 747, 749, 753, 758, 760, 763, 765, 774, 775, 779, 780, 781, 783 };
+
+    for (size_t i = 0; i < saturation_map.size(); i++) {
+        bool this_uncoverable = false;
+        for (size_t j = 0; j < uncoverable.size(); j++) {
+            if (i == uncoverable[j]) {
+                this_uncoverable = true;
+            }
+        }
+
+        if (this_uncoverable) {
+            saturation_map[i][0] = 0.0f;
+            saturation_map[i][1] = 0.0f;
+            saturation_map[i][2] = 0.0f;
+        } else {
+            // update average incidence angle from accumulated incidence angle and count
+            if (saturation_map[i][0] == 0.0f) {
+                saturation_map[i][1] = std::numeric_limits<float>::max();
+            } else {
+                saturation_map[i][1] /= saturation_map[i][0];
+            }
+        }
+    }
+}
+
+float compute_coverage_path(const std::vector<std::vector<float>> &path_data, std::vector<bool>& coverage) {
 
     // load in station
     std::vector<OBS> obsVec;
@@ -850,18 +1074,18 @@ float compute_coverage_path(const std::string& file, std::vector<bool>& coverage
     }
 
     // get faces:
-    std::vector<Triangle*> faces;
+    std::vector<Triangle*> all_faces;
     for (size_t i = 0; i < obsVec.size(); i++) {
         for (size_t j = 0; j < obsVec[i].faces.size(); j++) {
-            faces.push_back(&(obsVec[i].faces[j]));
+            all_faces.push_back(&(obsVec[i].faces[j]));
         }
     }
 
     // check coverage
-    std::vector<bool> covered(faces.size(), false);
+    std::vector<bool> covered(all_faces.size(), false);
     for (size_t i = 0; i < vps.size(); ++i) {
         std::vector<bool> coverage;
-        cuda_kernel_coverage(vps[i], faces, coverage);
+        cuda_kernel_coverage(vps[i], all_faces, coverage);
         for (size_t j = 0; j < coverage.size(); j++) {
             coverage[j] = !coverage[j];
         }
@@ -870,18 +1094,47 @@ float compute_coverage_path(const std::string& file, std::vector<bool>& coverage
                 covered[tridx] = true;
             }
         }
+        double progress = static_cast<double>(i) / vps.size();
+        std::ostringstream message;
+        message.str("");
+        displayProgressBar(progress, 100, message);
     }
 
-    // print coverage
+    std::cout << std::endl;
+
+    std::vector<size_t>  uncoverable = { 148, 152, 156, 158, 186, 190, 194, 196, 230, 231, 234, 235, 260, 272, 305, 316, 318, 333, 334, 380, 381, 392, 393, 396, 397, 422, 467, 478, 480, 495, 496, 728, 730, 733, 735, 744, 745, 746, 747, 749, 753, 758, 760, 763, 765, 774, 775, 779, 780, 781, 783 };
     size_t num_covered = 0;
     for (size_t i = 0; i < covered.size(); i++) {
         if (covered[i]) {
             num_covered++;
+        } else {
+            for (size_t j = 0; j < uncoverable.size(); j++) {
+                if (i == uncoverable[j]) {
+                    covered[i] = true;
+                    // num_covered++;
+                }
+            }
         }
     }
     coverage=covered;
-    return static_cast<float>(num_covered) / static_cast<float>(faces.size() - 50);
+
+    return static_cast<float>(num_covered) / static_cast<float>(all_faces.size() - uncoverable.size());
 }
+float compute_coverage_file(const std::string& file, std::vector<bool>& coverage) {
+    // load in solution
+    std::vector<std::vector<float>> path_data;
+    loadCSV(file, path_data, 7);
+    return compute_coverage_path(path_data, coverage);
+}
+
+float compute_smoothed_coverage(const std::vector<std::vector<float>> &path_data, std::vector<bool>& coverage) {
+    // smooth path
+    std::vector<std::vector<float>> smoothed_path;
+    orientation_moving_average(path_data, smoothed_path, 5);
+
+    return compute_coverage_path(smoothed_path, coverage);
+}
+
 
 std::string getnum(float num) {
     float rem = (num - static_cast<int>(num));
@@ -908,4 +1161,12 @@ std::string removeTrailingZeros(const std::string& str) {
     }
 
     return result;
+}
+
+vec3 slerp(vec3 v0, vec3 v1, float t) {
+    // spherical linear interpolation
+    // v0 and v1 are unit vectors
+    float norm_dot = v0.dot(v1) / (v0.norm() * v1.norm());
+    float theta = acosf(norm_dot);
+    return v0 * (sinf((1 - t) * theta) / sinf(theta)) + v1 * ( sinf(t * theta) / sinf(theta) );
 }

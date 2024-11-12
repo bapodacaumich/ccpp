@@ -86,6 +86,74 @@ def coverage_area(self, pose, d=0.5, hfov=60, vfov=60):
     return tl, tr, br, bl, ct
 
 
+def plot_packaged_path(folder, file, ax=None):
+    if ax is None: ax = plt.figure(figsize=(8, 8)).add_subplot(projection='3d')
+
+    filepath = os.path.join( os.getcwd(), '..', 'data', 'packaged_paths', folder, file)
+
+    path = np.loadtxt(filepath, delimeter=',')
+
+    ax.plot(path[:,0], path[:,1], path[:,2], 'k-')
+
+    step = 1
+    for i in range(0, path.shape[0], step):
+        ax = draw_camera(ax, path[i,:3], path[i,3:6])
+
+    return ax
+
+def normalize(v):
+    return v / np.linalg.norm(v) if np.linalg.norm(v) > 0 else v
+
+def draw_camera(axes, pose, viewdir, size=1):
+    """_summary_
+
+    Args:
+        axes (_type_): _description_
+        pose (_type_): _description_
+        viewdir (_type_): _description_
+        size (int, optional): _description_. Defaults to 1.
+
+    Returns:
+        _type_: _description_
+    """
+    # define world frame up
+    up_world = np.array([0,0,1])
+    fov = (np.pi/4, np.pi/4) # horizontal, vertical
+
+    # get camera plane basis vectors
+    left = normalize(np.cross(up_world, viewdir))
+    up = normalize(np.cross(viewdir, left))
+
+    # get fov adjusted camera plane centered basis vectors
+    left = left*np.tan(fov[0]/2)
+    up = up*np.tan(fov[1]/2)
+
+    # get viewbox corners
+    box_tl = pose + normalize(viewdir)*size + left*size + up*size
+    box_tr = pose + normalize(viewdir)*size - left*size + up*size
+    box_bl = pose + normalize(viewdir)*size + left*size - up*size
+    box_br = pose + normalize(viewdir)*size - left*size - up*size
+
+    # draw camera viewbox lines
+    pts = []
+    pts.append(pose)
+    pts.append(box_tl)
+    pts.append(box_tr)
+    pts.append(pose)
+    pts.append(box_bl)
+    pts.append(box_br)
+    pts.append(pose)
+    pts.append(box_tl)
+    pts.append(box_bl)
+    pts.append(box_br)
+    pts.append(box_tr)
+
+    pts = np.array(pts)
+    axes.plot(pts[:,0], pts[:,1], pts[:,2], 'k-', lw=0.5)
+
+    return axes
+
+
 # def plot_path_direct(cam_dist, local, folder='always_start_best', station=True, ax=None):
 def plot_path_direct(folder, file, ax=None):
     filepath = os.path.join(os.getcwd(), '..', 'data', folder, file)

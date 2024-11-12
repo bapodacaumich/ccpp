@@ -53,7 +53,7 @@ void CostMatrix::generateCostMatrix() {
                         // std::cout << " segment a cost=" << this->simple_cost_matrix[i][j];
                         // std::cout << " segment b cost=" << this->simple_cost_matrix[i][j] << std::endl;
                         this->cost_matrix[i][j][k] = 
-                            this->simple_cost_matrix[i][j] +
+                            // this->simple_cost_matrix[i][j] +
                             this->simple_cost_matrix[j][k] + 
                             transition_cost;
                             // fuel_cost(this->path_matrix[j][k].at(0), last_dir, next_dir, this->speed, last_dir.norm()/this->speed / this->N_discretization);
