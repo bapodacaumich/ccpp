@@ -141,7 +141,7 @@ def station_monotone(convex, title='Station', savefile='station', save=False, sh
 
     return fig
 
-def station_saturation(folder, condition, stat, save=False, show=True):
+def station_saturation(folder, condition, stat, save=False, show=True, title=None):
     """plotly station saturation visualization
 
     Args:
@@ -175,7 +175,7 @@ def station_saturation(folder, condition, stat, save=False, show=True):
         j.append(3*idx+1)
         k.append(3*idx+2)
 
-    if stat == 'count':
+    if stat == 'time':
         fig = go.Figure(data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=saturation[:,0], intensitymode='cell', colorscale='Viridis', showscale=True)])
     elif stat == 'avg':
         fig = go.Figure(data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=aoi_avg, intensitymode='cell', colorscale='Viridis', showscale=True)])
@@ -201,18 +201,22 @@ def station_saturation(folder, condition, stat, save=False, show=True):
                     )
     )
 
-    if stat == 'count':
+    if stat == 'time':
         fig.update_layout(
-            title=dict(text="Station View Count for " + folder + "/" + condition)
+            title=dict(text="Face Saturation (seconds): " + folder + "/" + condition)
         )
     elif stat == 'avg':
         fig.update_layout(
-            title=dict(text="Station Average AOI for " + folder + "/" + condition)
+            title=dict(text="Average Station AOI: " + folder + "/" + condition)
         )
     elif stat == 'min':
         fig.update_layout(
-            title=dict(text="Station Minimum AOI for " + folder + "/" + condition)
+            title=dict(text="Minimum Station AOI: " + folder + "/" + condition)
         )
+
+    fig.update_layout(
+        title=dict(text=title)
+    )
 
     if save:
         savefile = os.path.join(os.getcwd(), 'figures', folder, condition + '_' + stat + '_station.html')
@@ -220,6 +224,8 @@ def station_saturation(folder, condition, stat, save=False, show=True):
         fig.write_html(savefile)
 
     if show: fig.show()
+
+    return fig
 
 
 if __name__ == "__main__":

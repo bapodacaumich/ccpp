@@ -36,13 +36,18 @@ def plot_saturation_cw(tmax, stat, save=False, show=True):
     for condition in conditions:
         station_saturation(folder, condition, stat, save=save, show=show)
 
-if __name__ == "__main__":
+def save_all_methods_saturation():
     ocp_methods = [ 'ko', 'so' ]
-    stats = ['avg', 'min', 'count']
+    stats = ['avg', 'min', 'time']
     ivt_methods = ['var', '10', '50']
 
     for s in stats:
         for om in ocp_methods:
             plot_saturation_ocp(om, s, save=True, show=False)
+            # plot_saturation_ocp(om, s, save=False, show=True)
         for im in ivt_methods:
             plot_saturation_cw(im, s, save=True, show=False)
+            # plot_saturation_cw(im, s, save=False, show=True)
+
+if __name__ == '__main__':
+    save_all_methods_saturation()
