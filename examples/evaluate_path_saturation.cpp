@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
     // build path data based on framerate
 
     if (argc < 2) {
-        std::cout << "Usage: ./evaluate_path_saturation <fps>" << std::endl;
+        std::cout << "Usage: ./saturation <fps>" << std::endl;
         return 1;
     }
 
@@ -34,10 +34,10 @@ int main(int argc, char** argv) {
     };
 
     std::vector<std::string> savefolders = {
-        "ivt_10",
-        "ivt_50",
-        "ivt_var",
-        "ocp_ko",
+        // "ivt_10",
+        // "ivt_50",
+        // "ivt_var",
+        // "ocp_ko",
         "ocp_so"
     };
 
@@ -99,10 +99,11 @@ int main(int argc, char** argv) {
             compute_saturation_path(path_data_fps, saturation_map);
 
             // save saturation
+            std::cout << "\nSaving saturation map to " << savedir+savefolder + "/" + condition + "_sat.csv ... ";
             std::string savefile = savedir + savefolder + "/" + condition + "_sat.csv";
             saveCSV(savefile, saturation_map); // saturation = {count, avg_incidence_angle, min_incidence_angle}
-            std::cout << std::endl;
+            std::cout << "Done!" << std::endl;
         }
     }
-
+    return 0;
 }
