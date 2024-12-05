@@ -37,8 +37,8 @@ int main(int argc, char** argv) {
         // "ivt_10",
         // "ivt_50",
         // "ivt_var",
-        // "ocp_ko",
-        "ocp_so"
+        "ocp_ko"
+        // "ocp_so"
     };
 
     std::vector<std::string> conditions = {
@@ -99,11 +99,12 @@ int main(int argc, char** argv) {
             compute_saturation_path(path_data_fps, saturation_map);
 
             // save saturation
-            std::cout << "\nSaving saturation map to " << savedir+savefolder + "/" + condition + "_sat.csv ... ";
+            std::cout << "\nSaving saturation map to " << savedir+savefolder + "/" + condition + "_sat.csv ... " << std::endl;
             std::string savefile = savedir + savefolder + "/" + condition + "_sat.csv";
             saveCSV(savefile, saturation_map); // saturation = {count, avg_incidence_angle, min_incidence_angle}
-            std::cout << "Done!" << std::endl;
         }
+        std::cout << "Done evaluating path saturation for " << folder << std::endl;
     }
+    std::cout << "Done evaluating path saturation for all folders" << std::endl;
     return 0;
 }
