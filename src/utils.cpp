@@ -981,6 +981,13 @@ void compute_saturation_path(const std::vector<std::vector<float>> &path_data, s
         vps.push_back(vp);
     }
 
+    // get dt's for 'saturation' in seconds:
+    std::vector<float> dts;
+    for (size_t i = 0; i < path_data.size() - 1; i++) {
+        dts.push_back(path_data[i+1][6] - path_data[i][6]);
+    }
+    dts.push_back(dts[dts.size()-1]); // repeat last dt
+
 
     // get faces:
     std::vector<Triangle*> all_faces;
@@ -1015,7 +1022,7 @@ void compute_saturation_path(const std::vector<std::vector<float>> &path_data, s
             // AND face is visible
             if (coverage[tridx] && inc_angles[0][tridx] > 0 && inc_angles[0][tridx] < M_PI/2) {
                 // increment count 
-                saturation_map[tridx][0] += 1.0f;
+                saturation_map[tridx][0] += dts[i];
 
                 // accumulate incidence angles
                 saturation_map[tridx][1] += inc_angles[0][tridx];
