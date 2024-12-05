@@ -47,9 +47,7 @@ int main(int argc, char** argv) {
             std::cerr << "Error processing file: " << xfile << std::endl;
         }
         std::string savefile = "../visualization_python/coverage/ivt_" + folder + file + "_cov.csv";
-        // std::cout << "savefile: " << savefile << std::endl; // Debugging line
         std::vector<std::vector<bool>> coverage_per_face_2d(1, coverage_per_face);
-        // std::cout << "coverage dims: " << coverage_per_face_2d.size() << " " << coverage_per_face_2d[0].size() << std::endl; // Debugging line
         saveCSVbool(savefile, coverage_per_face_2d);
     }
 }
