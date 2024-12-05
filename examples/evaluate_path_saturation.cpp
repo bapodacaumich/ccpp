@@ -26,19 +26,25 @@ int main(int argc, char** argv) {
     float dt = 1.0f / fps;
 
     std::vector<std::string> folders = {
-        "cw_opt_packaged_10",
-        "cw_opt_packaged_50",
-        "cw_opt_packaged_var",
-        "pf_final_ko",
-        "pf_final_so"
+        // "cw_opt_packaged_10",
+        // "cw_opt_packaged_50",
+        // "cw_opt_packaged_var",
+        // "packaged_paths_ko/pf_final",
+        "packaged_paths_ko_slerp/pf_final",
+        "packaged_paths_ma/pf_final",
+        "packaged_paths_ma_slerp/pf_final"
+        // "packaged_paths_so/pf_final",
     };
 
     std::vector<std::string> savefolders = {
-        "ivt_10",
-        "ivt_50",
-        "ivt_var",
-        "ocp_ko",
-        "ocp_so"
+        // "ivt_10",
+        // "ivt_50",
+        // "ivt_var",
+        // "ocp_ko",
+        "ocp_ko_slerp",
+        "ocp_ma",
+        "ocp_ma_slerp"
+        // "ocp_so"
     };
 
     std::vector<std::string> conditions = {
