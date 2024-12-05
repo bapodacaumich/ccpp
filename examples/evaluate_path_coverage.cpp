@@ -9,6 +9,11 @@
 #include <cmath>
 #include <string>
 
+/*
+compute coverage for all paths in packaged_paths folder
+save coverage data to pareto_front folder
+*/
+
 int main(int argc, char** argv) {
     std::vector<std::string> folders = {
         "pf_2m_global",
@@ -34,6 +39,7 @@ int main(int argc, char** argv) {
 
     // std::string orientation_folder = "knotpoint_mapped_orientations/";
     std::string orientation_folder = "station_oriented/";
+    std::string packaged_folder = "packaged_paths_so/";
 
     std::cout << "valid_weights size = " << valid_weights.size() << std::endl;
 
@@ -62,7 +68,7 @@ int main(int argc, char** argv) {
             float fw = static_cast<float>(weights[i][1]);
             if (pf_coverage) {
                 std::vector<bool> coverage_per_face;
-                std::string xfile = dir + "packaged_paths/" + folder + "k_" + getnum(kw) + "_f_" + getnum(fw) + ".csv";
+                std::string xfile = dir + packaged_folder + folder + "k_" + getnum(kw) + "_f_" + getnum(fw) + ".csv";
                 // std::cout << "Computing coverage for " << xfile << " ";
                 std::vector<float> coverage = {compute_coverage_file(xfile, coverage_per_face)};
                 // std::cout << " coverage=" << std::to_string(coverage[0]) << std::endl;
