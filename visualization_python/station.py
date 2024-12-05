@@ -1,9 +1,12 @@
 from meshloader import load_meshes, load_vx_station, load_original_stl
-from utils import obs_trisurf, set_aspect_equal_3d
+from utils import obs_trisurf, set_aspect_equal_3d, get_hex_color_tableau
+import itertools
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import plotly.graph_objects as go
 
 def obs_normals(ax, meshes, normals, show=False):
     for i in range(len(meshes)):
@@ -57,6 +60,167 @@ def visualize_station(show=False, coverage_file='coverage_2m_coverage.csv', show
     set_aspect_equal_3d(ax)
     if show: plt.show()
     else: return ax
+
+def station_monotone(convex, title='Station', savefile='station', save=False, show=True, fig=None):
+    """generate a monotone station visualization with title and save to savefile
+
+    Args:
+        convex (bool): which station to plot
+        title (string, optional): plot title. Defaults to None.
+        savefile (string, optional): savefile with directory. Defaults to None.
+        save (bool, optional): _description_. Defaults to False.
+        show (bool, optional): _description_. Defaults to True.
+    """
+    # load in coverage station
+    meshes = load_meshes(convex=convex)
+    cmeshes = list(itertools.chain(*meshes))
+
+    x = []
+    y = []
+    z = []
+    i = []
+    j = []
+    k = []
+
+    for idx in range(len(cmeshes)):
+        x.extend([cmeshes[idx][0][0], cmeshes[idx][1][0], cmeshes[idx][2][0]])
+        y.extend([cmeshes[idx][0][1], cmeshes[idx][1][1], cmeshes[idx][2][1]])
+        z.extend([cmeshes[idx][0][2], cmeshes[idx][1][2], cmeshes[idx][2][2]])
+        i.append(3*idx)
+        j.append(3*idx+1)
+        k.append(3*idx+2)
+
+    if fig is None:
+        fig = go.Figure(data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, color=get_hex_color_tableau('tab:blue'), opacity=0.3, showscale=True)])
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z,
+            mode='lines',
+            line=dict(color='black', width=0.3)
+        ))
+    else:
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, color=get_hex_color_tableau('tab:orange'), opacity=0.3, showscale=True))
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z,
+            mode='lines',
+            line=dict(color='black', width=0.3)
+        ))
+
+    fig.update_layout(
+        scene = dict(
+            xaxis=dict(
+                title=dict(
+                    text='X AXIS'
+                ),
+                showgrid=False
+            ),
+            yaxis=dict(
+                title=dict(
+                    text='Y AXIS'
+                ),
+                showgrid=False
+            ),
+            zaxis=dict(
+                title=dict(
+                    text='Z AXIS'
+                ),
+                showgrid=False
+            ),
+        )
+    )
+
+    fig.update_layout(
+        title=dict(text=title)
+    )
+
+    if save:
+        savefile = os.path.join(os.getcwd(), savefile + '.html')
+        os.makedirs(os.path.dirname(savefile), exist_ok=True)
+        fig.write_html(savefile)
+
+    if show: fig.show()
+
+    return fig
+
+def station_saturation(folder, condition, stat, save=False, show=True):
+    """plotly station saturation visualization
+
+    Args:
+        folder (_type_): trajectory generation method
+        condition (_type_): vgd and locality conditions for path
+        stat (_type_): 'avg', 'min', or 'count'
+    """
+    # load in coverage station
+    meshes = load_meshes(convex=False)
+    cmeshes = list(itertools.chain(*meshes))
+
+    # load in corresponding saturation file
+    saturation_file = os.path.join(os.getcwd(), 'saturation', folder, condition + "_sat.csv")
+    saturation = np.loadtxt(saturation_file, delimiter=',')
+
+    aoi_avg = [sat if sat > 0 and sat < np.pi else np.pi for sat in saturation[:,1]]
+    aoi_min = [sat if sat > 0 and sat < np.pi else np.pi for sat in saturation[:,2]]
+
+    x = []
+    y = []
+    z = []
+    i = []
+    j = []
+    k = []
+
+    for idx in range(len(cmeshes)):
+        x.extend([cmeshes[idx][0][0], cmeshes[idx][1][0], cmeshes[idx][2][0]])
+        y.extend([cmeshes[idx][0][1], cmeshes[idx][1][1], cmeshes[idx][2][1]])
+        z.extend([cmeshes[idx][0][2], cmeshes[idx][1][2], cmeshes[idx][2][2]])
+        i.append(3*idx)
+        j.append(3*idx+1)
+        k.append(3*idx+2)
+
+    if stat == 'count':
+        fig = go.Figure(data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=saturation[:,0], intensitymode='cell', colorscale='Viridis', showscale=True)])
+    elif stat == 'avg':
+        fig = go.Figure(data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=aoi_avg, intensitymode='cell', colorscale='Viridis', showscale=True)])
+    elif stat == 'min':
+        fig = go.Figure( data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=aoi_min, intensitymode='cell', colorscale='Viridis', showscale=True)])
+
+    fig.update_layout(scene = dict(
+                      xaxis=dict(
+                          title=dict(
+                              text='X AXIS'
+                          )
+                      ),
+                      yaxis=dict(
+                          title=dict(
+                              text='Y AXIS'
+                          )
+                      ),
+                      zaxis=dict(
+                          title=dict(
+                              text='Z AXIS'
+                          )
+                      ),
+                    )
+    )
+
+    if stat == 'count':
+        fig.update_layout(
+            title=dict(text="Station View Count for " + folder + "/" + condition)
+        )
+    elif stat == 'avg':
+        fig.update_layout(
+            title=dict(text="Station Average AOI for " + folder + "/" + condition)
+        )
+    elif stat == 'min':
+        fig.update_layout(
+            title=dict(text="Station Minimum AOI for " + folder + "/" + condition)
+        )
+
+    if save:
+        savefile = os.path.join(os.getcwd(), 'figures', folder, condition + '_' + stat + '_station.html')
+        os.makedirs(os.path.dirname(savefile), exist_ok=True)
+        fig.write_html(savefile)
+
+    if show: fig.show()
+
 
 if __name__ == "__main__":
     visualize_station(show=True, show_start=False)

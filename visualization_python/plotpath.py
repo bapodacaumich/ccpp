@@ -1,9 +1,92 @@
-from station import visualize_station
-from utils import plot_path_direct, save_animation, plot_cw_opt_path, set_aspect_equal_3d, plot_packaged_path, plot_viewpoints
+from station import visualize_station, station_monotone
+from utils import plot_path_direct, save_animation, plot_cw_opt_path, set_aspect_equal_3d, plot_packaged_path, plot_viewpoints, camera_fov_points, get_hex_color_tableau
 from matplotlib import pyplot as plt
 import os
 import numpy as np
+import plotly.graph_objects as go
 
+def plotly_add_camera_fov(figure, data, step=5):
+    for i in range(0, data.shape[0], step):
+        viewdir_pts = camera_fov_points(data[i,:3], data[i,3:6])
+        figure.add_trace(go.Scatter3d(
+            x=viewdir_pts[:,0], y=viewdir_pts[:,1], z=viewdir_pts[:,2],
+            mode='lines',
+            line=dict(color='black', width=2),
+            showlegend=False
+        ))
+
+    if data.shape[0] % step != 1:
+        i = data.shape[0] - 1
+        viewdir_pts = camera_fov_points(data[i,:3], data[i,3:6])
+        figure.add_trace(go.Scatter3d(
+            x=viewdir_pts[:,0], y=viewdir_pts[:,1], z=viewdir_pts[:,2],
+            mode='lines',
+            line=dict(color='black', width=2),
+            name='Camera FOV'
+        ))
+
+    return figure
+
+def plot_path_and_dir(data, figure, savefile=os.path.join('figures','path'), save=False, show=True):
+    """plot path and direction in plotly
+
+    Args:
+        data (np.ndarray): N x 6 array of [x, y, z, u, v, w] data
+        figure (_type_): Plotly figure
+        savefile (str, optional): file string to save html of figure to. Defaults to os.path.join('figures','path').
+        save (bool, optional): save to savefile?. Defaults to False.
+        show (bool, optional): plot figure in browser. Defaults to True.
+
+    Returns:
+        _type_: _description_
+    """
+
+    figure.add_trace(go.Scatter3d(
+        x=data[:,0], y=data[:,1], z=data[:,2],
+        mode='lines', name='Path',
+        line=dict(color='black', width=5)
+    ))
+
+    figure = plotly_add_camera_fov(figure, data, step=5)
+
+    if save:
+        savefile = os.path.join(os.getcwd(), savefile)
+        os.makedirs(os.path.dirname(savefile), exist_ok=True)
+        figure.write_html(savefile + '.html')
+
+    if show: figure.show()
+
+    return figure
+
+def plot_final_path(vgd, local, condition='ocp'):
+    """plot final path in plotly
+
+    Args:
+        vgd (str): viewpoint generation distance (i.e. '2m', '4m', '8m', '16m')
+        local (bool): local or global viewpoint generation
+        condition (str, optional): path generation method (folder within ./final_paths/ directory). Defaults to 'ocp'.
+    """
+
+    figure = station_monotone(True, title=condition + ': ' + vgd + (' local' if local else ' global') + ' path', save=False, show=False)
+    # figure = station_monotone(False, title=condition + ': ' + vgd + (' local' if local else ' global') + ' path', save=False, show=False, fig=figure)
+    data = np.loadtxt(os.path.join('final_paths', condition, vgd + '_local.csv' if local else vgd + '_global.csv'), delimiter=',')
+
+    figure = plot_path_and_dir(data, figure, save=False, show=False)
+    figure.update_layout(template='simple_white')
+    figure.show()
+
+def plot_condition(condition):
+    """plot final paths in plotly
+
+    Args:
+        condition (str): path generation method (folder within ./final_paths/ directory)
+    """
+
+    vgds = ['2m', '4m', '8m', '16m']
+    locals = [True, False]
+    for vgd in vgds:
+        for local in locals:
+            plot_final_path(vgd, local, condition=condition)
 
 def plotpath(vgd, local, condition='ocp'):
     local_txt = '_local' if local else '_global'
@@ -70,11 +153,12 @@ def plotpath(vgd, local, condition='ocp'):
     # plt.show()
 
 if __name__ == "__main__":
-    condition = 'ocp'
-    # vgds = ['2m', '4m', '8m', '16m']
-    vgds = ['4m']
-    locals = [True, False]
-    for vgd in vgds:
-        for local in locals:
-            plotpath(vgd, local, condition=condition)
-    # plotpath()
+    plot_condition('ocp_station_oriented')
+    # condition = 'ocp'
+    # # vgds = ['2m', '4m', '8m', '16m']
+    # vgds = ['4m']
+    # locals = [True, False]
+    # for vgd in vgds:
+    #     for local in locals:
+    #         plotpath(vgd, local, condition=condition)
+    # # plotpath()

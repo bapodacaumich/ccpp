@@ -122,10 +122,48 @@ def plot_packaged_path(folder, file, ax=None, plot_dir=False):
     if plot_dir:
         ax.quiver(path[:,0], path[:,1], path[:,2], path[:,3], path[:,4], path[:,5], length=1, zorder=10, clip_on=False)
 
+
     return ax
 
 def normalize(v):
     return v / np.linalg.norm(v) if np.linalg.norm(v) > 0 else v
+
+def camera_fov_points(pose, viewdir, size=1):
+    viewdir += 0.0001 # avoid zero vector
+    # define world frame up
+    up_world = np.array([0,0,1])
+    fov = (np.pi/4, np.pi/4) # horizontal, vertical
+
+    # get camera plane basis vectors
+    left = normalize(np.cross(up_world, viewdir))
+    up = normalize(np.cross(viewdir, left))
+
+    # get fov adjusted camera plane centered basis vectors
+    left = left*np.tan(fov[0]/2)
+    up = up*np.tan(fov[1]/2)
+
+    # get viewbox corners
+    box_tl = pose + normalize(viewdir)*size + left*size + up*size
+    box_tr = pose + normalize(viewdir)*size - left*size + up*size
+    box_bl = pose + normalize(viewdir)*size + left*size - up*size
+    box_br = pose + normalize(viewdir)*size - left*size - up*size
+
+    # draw camera viewbox lines
+    pts = []
+    pts.append(pose)
+    pts.append(box_tl)
+    pts.append(box_tr)
+    pts.append(pose)
+    pts.append(box_bl)
+    pts.append(box_br)
+    pts.append(pose)
+    pts.append(box_tl)
+    pts.append(box_bl)
+    pts.append(box_br)
+    pts.append(box_tr)
+
+    pts = np.array(pts)
+    return pts
 
 def draw_camera(axes, pose, viewdir, size=1):
     """_summary_
@@ -174,6 +212,7 @@ def draw_camera(axes, pose, viewdir, size=1):
 
     pts = np.array(pts)
     axes.plot(pts[:,0], pts[:,1], pts[:,2], 'k-', lw=0.5, clip_on=False, zorder=10)
+
 
     return axes
 
@@ -268,3 +307,20 @@ def set_aspect_equal_3d(axes):
     ylim = axes.get_ylim()
     zlim = axes.get_zlim()
     axes.set_box_aspect([xlim[1]-xlim[0], ylim[1]-ylim[0], zlim[1]-zlim[0]])
+
+def get_hex_color_tableau(color):
+    tab_colors = {
+        'tab:blue' : '#1f77b4',
+        'tab:orange' : '#ff7f0e',
+        'tab:green' : '#2ca02c',
+        'tab:red' : '#d62728',
+        'tab:purple' : '#9467bd',
+        'tab:brown' : '#8c564b',
+        'tab:pink' : '#e377c2',
+        'tab:gray' : '#7f7f7f',
+        'tab:olive' : '#bcbd22',
+        'tab:cyan' : '#17becf'
+    }
+
+    if color in tab_colors.keys(): return tab_colors[color]
+    else: return None
