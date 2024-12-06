@@ -168,9 +168,9 @@ def plot_all_aoi_traj():
         'ivt_50',
         'ivt_var',
         'ocp_ko',
-        # 'ocp_ko_slerp',
-        # 'ocp_ma',
-        # 'ocp_ma_slerp',
+        'ocp_ko_slerp',
+        'ocp_ma',
+        'ocp_ma_slerp',
         'ocp_so'
     ]
 
