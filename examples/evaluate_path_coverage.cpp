@@ -38,8 +38,8 @@ int main(int argc, char** argv) {
     };
 
     // std::string orientation_folder = "knotpoint_mapped_orientations/";
-    std::string orientation_folder = "station_oriented/";
-    std::string packaged_folder = "packaged_paths_so/";
+    std::string orientation_folder = "face_oriented/";
+    std::string packaged_folder = "packaged_paths_fo/";
 
     std::cout << "valid_weights size = " << valid_weights.size() << std::endl;
 
