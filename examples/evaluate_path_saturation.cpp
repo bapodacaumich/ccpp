@@ -56,10 +56,11 @@ int main(int argc, char** argv) {
     std::vector<std::string> conditions = {
         // "2m_global",
         // "2m_local",
-        "4m_global",
-        "4m_local",
-        "8m_global",
-        "8m_local"
+        // "4m_global",
+        // "4m_local",
+        // "8m_global",
+        "8m_global_alt"
+        // "8m_local"
         // "16m_global",
         // "16m_local"
     };
