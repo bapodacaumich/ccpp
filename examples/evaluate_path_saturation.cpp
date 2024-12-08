@@ -34,8 +34,9 @@ int main(int argc, char** argv) {
         // "packaged_paths_ma/pf_final",
         // "packaged_paths_ma_slerp/pf_final",
         // "packaged_paths_so/pf_final",
-        "packaged_paths_fo/pf_final"
+        // "packaged_paths_fo/pf_final"
         // "packaged_paths_ko_slerp/study_paths",
+        "packaged_paths_fo/study_paths"
     };
 
     std::vector<std::string> savefolders = {
@@ -47,19 +48,20 @@ int main(int argc, char** argv) {
         // "ocp_ma",
         // "ocp_ma_slerp"
         // "ocp_so"
-        "ocp_fo"
-        // "study_paths"
+        // "ocp_fo"
+        // "study_paths_ko_slerp"
+        "study_paths_fo"
     };
 
     std::vector<std::string> conditions = {
-        "2m_global",
-        "2m_local",
+        // "2m_global",
+        // "2m_local",
         "4m_global",
         "4m_local",
         "8m_global",
-        "8m_local",
-        "16m_global",
-        "16m_local"
+        "8m_local"
+        // "16m_global",
+        // "16m_local"
     };
 
     std::string dir = "../knot_ocp/";
