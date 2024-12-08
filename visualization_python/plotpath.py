@@ -85,15 +85,30 @@ def plot_final_path_min_aoi(vgd, local, condition='ocp'):
         local (_type_): _description_
         condition (str, optional): _description_. Defaults to 'ocp'.
     """
+    # plot corresponding saturation values on mesh
     figure = station_saturation(condition, vgd + ('_local' if local else '_global'), 'min', save=False, show=False)
 
-    data = np.loadtxt(os.path.join('final_paths', condition, vgd + '_local.csv' if local else vgd + '_global.csv'), delimiter=',')
+    # plot knot points
+    knotfile = os.path.join('final_paths', 'knots', vgd + '_local.csv' if local else vgd + '_global.csv')
+    figure = plot_knots(knotfile, figure, show=False)
 
+    # remove gridline background
     figure.update_layout(template='simple_white')
 
+    # prepare save directory and file
     save_file = os.path.join(os.getcwd(), 'figures', 'traj_min_aoi', condition, vgd + ('_local' if local else '_global') + '_min_aoi')
     os.makedirs(os.path.dirname(save_file), exist_ok=True)
+
+    # load final path data and plot
+    data = np.loadtxt(os.path.join('final_paths', condition, vgd + '_local.csv' if local else vgd + '_global.csv'), delimiter=',')
     figure = plot_path_and_dir(data, figure, savefile=save_file, save=True, show=False)
+
+def plot_aoi_study_paths(method='ko_slerp'):
+    vgds = ['4m', '8m']
+    locals = [True, False]
+    for vgd in vgds:
+        for local in locals:
+            plot_final_path_min_aoi(vgd, local, condition='study_paths_' + method)
 
 def plot_aoi_condition(condition):
     """plot and save final paths in plotly with min aoi data
@@ -171,14 +186,42 @@ def plot_all_aoi_traj():
         'ocp_ko_slerp',
         'ocp_ma',
         'ocp_ma_slerp',
-        'ocp_so'
+        'ocp_so',
+        'ocp_fo'
     ]
 
     for c in conditions:
         plot_aoi_condition(c)
 
+def plot_file(pathfile, knotfile):
+    figure = station_monotone(True, title=pathfile, save=False, show=False)
+    figure = plot_knots(knotfile, figure, show=False)
+    data = np.loadtxt(pathfile, delimiter=',')
+    plot_path_and_dir(data, figure, save=False, show=True)
+
+def plot_knots(knotfile, figure, show=False):
+    data = np.loadtxt(knotfile, delimiter=',')
+    figure.add_trace(go.Scatter3d(
+        x=data[:,0], y=data[:,1], z=data[:,2],
+        mode='markers', name='Knots',
+        marker=dict(color='red', size=5)
+    ))
+    figure.add_trace(go.Scatter3d(
+        x=data[:,0], y=data[:,1], z=data[:,2],
+        mode='lines', name='Knots',
+        marker=dict(color='black', size=5)
+    ))
+
+    figure = plotly_add_camera_fov(figure, data, step=1)
+
+    if show: figure.show()
+
+    return figure
+
 if __name__ == "__main__":
-    plot_all_aoi_traj()
+    plot_aoi_study_paths('fo')
+    # plot_all_aoi_traj()
+    # plot_aoi_condition('ocp_fo')
     # plot_condition('ocp_station_oriented')
     # condition = 'ocp'
     # # vgds = ['2m', '4m', '8m', '16m']
