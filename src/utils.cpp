@@ -1049,7 +1049,7 @@ void compute_saturation_path(
     saturation_map.resize(all_faces.size(), {0.0f, 0.0f, std::numeric_limits<float>::max()});
 
     // binning behavior
-    saturation_bins.resize(all_faces.size(), std::vector<size_t>(n_bins, 0));
+    saturation_bins.resize(all_faces.size(), std::vector<size_t>(n_bins+1, 0));
 
     // check coverage
     for (size_t i = 0; i < vps.size(); ++i) {
@@ -1087,8 +1087,8 @@ void compute_saturation_path(
                 size_t bin_idx = determine_bin_idx(inc_angles[0][tridx], n_bins, M_PI/2/n_bins);
 
                 // clamp outliers to last bin (not visible -> invalid angle)
-                if (bin_idx > n_bins-1) {
-                    bin_idx = n_bins-1;
+                if (bin_idx > n_bins) {
+                    bin_idx = n_bins;
                 }
 
                 // increment bin count
