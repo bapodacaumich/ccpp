@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 def obs_normals(ax, meshes, normals, show=False):
@@ -73,6 +74,37 @@ def station_monotone(convex, title='Station', savefile='station', save=False, sh
     """
     # load in coverage station
     meshes = load_meshes(convex=convex)
+
+    x_by_mesh = []
+    y_by_mesh = []
+    z_by_mesh = []
+    i_by_mesh = []
+    j_by_mesh = []
+    k_by_mesh = []
+
+    for mesh in meshes:
+        xmesh = []
+        ymesh = []
+        zmesh = []
+        imesh = []
+        jmesh = []
+        kmesh = []
+
+        for idx in range(len(mesh)):
+            xmesh.extend([mesh[idx][0][0], mesh[idx][1][0], mesh[idx][2][0]])
+            ymesh.extend([mesh[idx][0][1], mesh[idx][1][1], mesh[idx][2][1]])
+            zmesh.extend([mesh[idx][0][2], mesh[idx][1][2], mesh[idx][2][2]])
+            imesh.append(3*idx)
+            jmesh.append(3*idx+1)
+            kmesh.append(3*idx+2)
+
+        x_by_mesh.append(xmesh)
+        y_by_mesh.append(ymesh)
+        z_by_mesh.append(zmesh)
+        i_by_mesh.append(imesh)
+        j_by_mesh.append(jmesh)
+        k_by_mesh.append(kmesh)
+
     cmeshes = list(itertools.chain(*meshes))
 
     x = []
@@ -81,6 +113,7 @@ def station_monotone(convex, title='Station', savefile='station', save=False, sh
     i = []
     j = []
     k = []
+
 
     for idx in range(len(cmeshes)):
         x.extend([cmeshes[idx][0][0], cmeshes[idx][1][0], cmeshes[idx][2][0]])
@@ -91,19 +124,27 @@ def station_monotone(convex, title='Station', savefile='station', save=False, sh
         k.append(3*idx+2)
 
     if fig is None:
-        fig = go.Figure(data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, color=get_hex_color_tableau('tab:blue'), opacity=0.3, showscale=True)])
-        fig.add_trace(go.Scatter3d(
-            x=x, y=y, z=z,
-            mode='lines',
-            line=dict(color='black', width=0.3)
-        ))
+        fig = go.Figure(data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, color=get_hex_color_tableau('tab:blue'), opacity=0.2, showscale=True)])
     else:
-        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, color=get_hex_color_tableau('tab:orange'), opacity=0.3, showscale=True))
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, color=get_hex_color_tableau('tab:orange'), opacity=0.2, showscale=True))
+
+    for idx in range(len(x_by_mesh)):
         fig.add_trace(go.Scatter3d(
-            x=x, y=y, z=z,
+            x=x_by_mesh[idx], 
+            y=y_by_mesh[idx], 
+            z=z_by_mesh[idx], 
+            # i=i_by_mesh[idx], 
+            # j=j_by_mesh[idx], 
+            # k=k_by_mesh[idx], 
             mode='lines',
-            line=dict(color='black', width=0.3)
+            line=dict(color='black', width=0.3),
+            showlegend=False
         ))
+    # fig.add_trace(go.Scatter3d(
+    #     x=x, y=y, z=z,
+    #     mode='lines',
+    #     line=dict(color='black', width=0.3)
+    # ))
 
     fig.update_layout(
         scene = dict(
@@ -141,7 +182,7 @@ def station_monotone(convex, title='Station', savefile='station', save=False, sh
 
     return fig
 
-def station_saturation(folder, condition, stat, save=False, show=True, title=None):
+def station_saturation(folder, condition, stat, save=False, show=True, title=None, side_by_side=False):
     """plotly station saturation visualization
 
     Args:
@@ -175,48 +216,56 @@ def station_saturation(folder, condition, stat, save=False, show=True, title=Non
         j.append(3*idx+1)
         k.append(3*idx+2)
 
+    if side_by_side:
+        fig = make_subplots(rows=1, cols=2, subplot_titles=("Minimum Station AOI", "Face AOI Histogram"),
+                            specs=[[{'type': 'scene'}, {'type': 'histogram'}]])
+    else:
+        fig = go.Figure(title=title)
     if stat == 'time':
-        fig = go.Figure(data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=saturation[:,0], intensitymode='cell', colorscale='Viridis', showscale=True)])
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=saturation[:,0], intensitymode='cell', colorscale='Viridis', showscale=True))
     elif stat == 'avg':
-        fig = go.Figure(data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=aoi_avg, intensitymode='cell', colorscale='Viridis', showscale=True)])
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=aoi_avg, intensitymode='cell', colorscale='Viridis', showscale=True))
     elif stat == 'min':
-        fig = go.Figure( data=[go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=aoi_min, intensitymode='cell', colorscale='Viridis', showscale=True)])
+        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=aoi_min, intensitymode='cell', colorscale='Viridis', showscale=True))
 
-    fig.update_layout(scene = dict(
-                      xaxis=dict(
-                          title=dict(
-                              text='X AXIS'
-                          )
-                      ),
-                      yaxis=dict(
-                          title=dict(
-                              text='Y AXIS'
-                          )
-                      ),
-                      zaxis=dict(
-                          title=dict(
-                              text='Z AXIS'
-                          )
-                      ),
-                    )
-    )
+    # fig.update_layout(
+    #     scene = dict(
+    #         xaxis=dict(
+    #             title=dict(
+    #                 text='X AXIS'
+    #             )
+    #         ),
+    #         yaxis=dict(
+    #             title=dict(
+    #                 text='Y AXIS'
+    #             )
+    #         ),
+    #         zaxis=dict(
+    #             title=dict(
+    #                 text='Z AXIS'
+    #             )
+    #         ),
+    #     ),
+    #     row=1, col=1
+    # )
 
-    if stat == 'time':
-        fig.update_layout(
-            title=dict(text="Face Saturation (seconds): " + folder + "/" + condition)
-        )
-    elif stat == 'avg':
-        fig.update_layout(
-            title=dict(text="Average Station AOI: " + folder + "/" + condition)
-        )
-    elif stat == 'min':
-        fig.update_layout(
-            title=dict(text="Minimum Station AOI: " + folder + "/" + condition)
-        )
+    # if stat == 'time':
+    #     fig.update_layout(
+    #         title=dict(text="Face Saturation (seconds): " + folder + "/" + condition)
+    #     )
+    # elif stat == 'avg':
+    #     fig.update_layout(
+    #         title=dict(text="Average Station AOI: " + folder + "/" + condition)
+    #     )
+    # elif stat == 'min':
+    #     fig.update_layout(
+    #         title=dict(text="Minimum Station AOI: " + folder + "/" + condition)
+    #     )
 
-    fig.update_layout(
-        title=dict(text=title)
-    )
+    if not side_by_side:
+        fig.update_layout(
+            title=dict(text=title)
+        )
 
     if save:
         savefile = os.path.join(os.getcwd(), 'figures', folder, condition + '_' + stat + '_station.html')
