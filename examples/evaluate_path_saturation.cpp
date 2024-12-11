@@ -4,6 +4,7 @@
 #include "vec3_struct.hpp"
 #include "viewpoint_struct.hpp"
 
+#include <cmath>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -56,11 +57,10 @@ int main(int argc, char** argv) {
     std::vector<std::string> conditions = {
         // "2m_global",
         // "2m_local",
-        // "4m_global",
-        // "4m_local",
-        // "8m_global",
-        "8m_global_alt"
-        // "8m_local"
+        "4m_global",
+        "4m_local",
+        "8m_global",
+        "8m_local"
         // "16m_global",
         // "16m_local"
     };
@@ -94,9 +94,9 @@ int main(int argc, char** argv) {
                         alpha
                     );
                     std::vector<float> path_step = {
-                        lerp(path_data[prev_idx][0], path_data[after_idx][0], alpha),
-                        lerp(path_data[prev_idx][1], path_data[after_idx][1], alpha),
-                        lerp(path_data[prev_idx][2], path_data[after_idx][2], alpha),
+                        std::lerp(path_data[prev_idx][0], path_data[after_idx][0], alpha),
+                        std::lerp(path_data[prev_idx][1], path_data[after_idx][1], alpha),
+                        std::lerp(path_data[prev_idx][2], path_data[after_idx][2], alpha),
                         viewdir.x,
                         viewdir.y,
                         viewdir.z,
@@ -107,14 +107,23 @@ int main(int argc, char** argv) {
                 }
             }
 
+            std::cout << path_data_fps.size() << " frames at " << fps << " fps" << std::endl;
+
             // compute saturation
             std::vector<std::vector<float>> saturation_map;
-            compute_saturation_path(path_data_fps, saturation_map);
+            std::vector<std::vector<size_t>> saturation_bins;
+            size_t n_bins = 64;
+            compute_saturation_path(path_data_fps, saturation_map, saturation_bins, n_bins);
 
-            // save saturation
-            std::cout << "\nSaving saturation map to " << savedir+savefolder + "/" + condition + "_sat.csv ... " << std::endl;
-            std::string savefile = savedir + savefolder + "/" + condition + "_sat.csv";
-            saveCSV(savefile, saturation_map); // saturation = {viewing_time, avg_incidence_angle, min_incidence_angle}
+            // save saturation map
+            std::string savefile_sat = savedir + savefolder + "/" + condition + "_sat.csv";
+            std::cout << "\nSaving saturation stats to " << savefile_sat << " ..." << std::endl;
+            saveCSV(savefile_sat, saturation_map); // saturation = {viewing_time, avg_incidence_angle, min_incidence_angle}
+
+            // save saturation binning
+            std::string savefile_bin = savedir + savefolder + "/" + condition + "_sat_" + std::to_string(n_bins) + "_bins.csv";
+            std::cout << "Saving saturation histogram binning to " << savefile_bin << " ... " << std::endl;
+            saveCSVsizet(savefile_bin, saturation_bins); // saturation = {viewing_time, avg_incidence_angle, min_incidence_angle}
         }
         std::cout << "Done evaluating path saturation for " << folder << std::endl;
     }

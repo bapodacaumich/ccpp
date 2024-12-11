@@ -22,10 +22,15 @@ bool ray_int_triangle(Node3D node, Triangle tri, vec3& intPoint= * TEMP, float e
 float heading_change(Node3D node, Node3D next_node);
 float heading_change(Node3D node, vec3 vector);
 float heading_change(vec3 v0, vec3 v1);
+
+// loading functions
 bool loadCSV(const std::string& filename, std::vector<std::vector<float>>& data, int rowlen, char delimiter=',', bool raw=false);
 bool loadCSVbool(const std::string& filename, std::vector<std::vector<bool>>& data);
+
+// saving functions
 void saveCSVbool(const std::string& filename, const std::vector<std::vector<bool>>& data);
 void saveCSV(const std::string& filename, const std::vector<std::vector<float>>& data);
+void saveCSVsizet(const std::string& filename, const std::vector<std::vector<size_t>>& data);
 void loadCube(std::vector<std::vector<std::vector<float>>>& data, float xs=-1, float xf=1);
 void convertFlatToTriangle(const std::vector<std::vector<float>>& flatData, std::vector<Triangle>& tris, size_t module_idx=0);
 void loadCubeOBS(std::vector<OBS>& obsVec);
@@ -33,6 +38,7 @@ void loadConvexStationOBS(std::vector<OBS>& obsVec, float scale);
 void loadStationOBS(std::vector<OBS>& obsVec, float scale);
 void printHistogram(std::vector<float>& data);
 void loadVxStationOBS(std::vector<OBS>& obsVec, float scale);
+
 void vecToTri(const std::vector<std::vector<std::vector<float>>>& data, std::vector<Triangle>& tris);
 bool allTrue(const std::vector<TriangleCoverage>& arr, size_t module_idx);
 bool allTrue(const std::vector<TriangleCoverage>& arr);
@@ -51,7 +57,14 @@ float compute_fuel_cost_path(const std::string& ufile, const std::string& tfile,
 float compute_pathtime_path(const std::string& tfile);
 void get_uncoverable_faces(std::vector<OBS>& obsVec, std::vector<size_t>& uncoverable);
 void orientation_moving_average(const std::vector<std::vector<float>> &path_data, std::vector<std::vector<float>> & smoothed_path, size_t window_size=5);
-void compute_saturation_path(const std::vector<std::vector<float>> &path_data, std::vector<std::vector<float>> &saturation_map);
+
+// compute number of views each face gets, minimum and average aoi for each face, and binning counts for aoi
+void compute_saturation_path(
+    const std::vector<std::vector<float>> &path_data, 
+    std::vector<std::vector<float>> &saturation_map, 
+    std::vector<std::vector<size_t>> &saturation_bins,
+    size_t n_bins=16 // n_bins between 0 and pi/2. one extra will be added for outliers
+);
 float compute_coverage_path(const std::vector<std::vector<float>> &path_data, std::vector<bool>& coverage);
 float compute_coverage_file(const std::string& file, std::vector<bool>& coverage);
 float compute_smoothed_coverage(const std::vector<std::vector<float>> &path_data, std::vector<bool>& coverage);
@@ -59,5 +72,8 @@ std::string getnum(float num);
 std::string removeTrailingZeros(const std::string& str);
 
 vec3 slerp(vec3 v0, vec3 v1, float t);
+
+void writeTriToFile(const Triangle &tri, std::ofstream &file);
+void saveObjFile(const std::vector<OBS>& obsVec, const std::string &filename);
 
 #endif // UTILS_HPP

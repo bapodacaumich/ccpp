@@ -37,6 +37,7 @@ ViewpointGenerator::ViewpointGenerator() {
 //     // initialize viewpoint generator
 //     this->initialize();
 // }
+
 // ViewpointGenerator::ViewpointGenerator(
 //     std::vector<OBS> structure,
 //     float vgd

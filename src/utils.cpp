@@ -269,6 +269,41 @@ void saveCSV(const std::string& filename, const std::vector<std::vector<float>>&
     file.close();
 }
 
+void saveCSVsizet(const std::string& filename, const std::vector<std::vector<size_t>>& data) {
+    /*
+    * Save 2d std::vector float to a csv file
+    * @param filename: std::string, path to save file
+    * @param data: std::vector<std::vector<float>>, data to save
+    */
+
+
+    // Open the file in output mode
+    std::ofstream file(filename);
+    
+    // Check if the file was opened successfully
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return;
+    }
+    
+    // Iterate over the rows
+    size_t n_rows = data.size();
+    for (size_t i = 0; i < n_rows; ++i) {
+        // Iterate over the columns
+        size_t n_cols = data[i].size();
+        for (size_t j = 0; j < n_cols; ++j) {
+            file << data[i][j]; // uints have no decimals - just save them
+            if (j < n_cols - 1) {
+                file << ","; // Separate values with a comma
+            }
+        }
+        file << "\n"; // End of row
+    }
+
+    // Close the file
+    file.close();
+}
+
 void loadCube(std::vector<std::vector<std::vector<float>>>& data, float xs, float xf) {
     /*
     * instantiate cube triangles into data
@@ -957,16 +992,29 @@ void orientation_moving_average(const std::vector<std::vector<float>> &path_data
     }
 }
 
-void compute_saturation_path(const std::vector<std::vector<float>> &path_data, std::vector<std::vector<float>> &saturation_map) {
+size_t determine_bin_idx(float aoi, size_t n_bins, float bin_width) {
+    // determine bin index for a given angle of incidence
+    size_t bin_idx = static_cast<size_t>(aoi / bin_width); // static_cast truncates decimal of float --> rounding down
+    return bin_idx;
+}
+
+void compute_saturation_path(
+    const std::vector<std::vector<float>> &path_data, 
+    std::vector<std::vector<float>> &saturation_map, 
+    std::vector<std::vector<size_t>> &saturation_bins, 
+    size_t n_bins
+    ) {
     // saturation map tracks the number of times a face is seen from the path, closest distance seen from, average incidence angle, and minimum incidence angle
     // number of times a face is visible -- count
     // how far it is seen -- take min of distance * don't need this for now
     // average incidence angle --  sum of angles / count
     // minimum incidence angle -- min of each new angle
     // saturation_map = {count, avg_angle, min_angle}
+    // saturation_bins = {face0_bins, face1_bins, ...} where face0_bins = {bin0, bin1, ... binN} where bin0 = count of times face0 is seen in bin0 etc. binN holds outliers
 
     // clear saturation map
     saturation_map.clear();
+    saturation_bins.clear();
 
     // load in station
     std::vector<OBS> obsVec;
@@ -1000,6 +1048,9 @@ void compute_saturation_path(const std::vector<std::vector<float>> &path_data, s
     // set up saturation map. resizing from zero sets all elements to val below
     saturation_map.resize(all_faces.size(), {0.0f, 0.0f, std::numeric_limits<float>::max()});
 
+    // binning behavior
+    saturation_bins.resize(all_faces.size(), std::vector<size_t>(n_bins, 0));
+
     // check coverage
     for (size_t i = 0; i < vps.size(); ++i) {
         // get coverage for this viewpoint
@@ -1031,6 +1082,17 @@ void compute_saturation_path(const std::vector<std::vector<float>> &path_data, s
                 if (inc_angles[0][tridx] < saturation_map[tridx][2]) {
                     saturation_map[tridx][2] = inc_angles[0][tridx];
                 }
+
+                // determine correct bin index
+                size_t bin_idx = determine_bin_idx(inc_angles[0][tridx], n_bins, M_PI/2/n_bins);
+
+                // clamp outliers to last bin (not visible -> invalid angle)
+                if (bin_idx > n_bins-1) {
+                    bin_idx = n_bins-1;
+                }
+
+                // increment bin count
+                saturation_bins[tridx][bin_idx] += 1;
             }
         }
 
@@ -1051,9 +1113,15 @@ void compute_saturation_path(const std::vector<std::vector<float>> &path_data, s
         }
 
         if (this_uncoverable) {
+            // zero out average incidence angle for uncoverable faces
             saturation_map[i][0] = 0.0f;
             saturation_map[i][1] = 0.0f;
             saturation_map[i][2] = 0.0f;
+
+            // zero out bins for uncoverable faces
+            for (size_t j = 0; j < n_bins; j++) {
+                saturation_bins[i][j] = 0;
+            }
         } else {
             // update average incidence angle from accumulated incidence angle and count
             if (saturation_map[i][0] == 0.0f) {
@@ -1176,4 +1244,99 @@ vec3 slerp(vec3 v0, vec3 v1, float t) {
     float norm_dot = v0.dot(v1) / (v0.norm() * v1.norm());
     float theta = acosf(norm_dot);
     return v0 * (sinf((1 - t) * theta) / sinf(theta)) + v1 * ( sinf(t * theta) / sinf(theta) );
+}
+
+void writeTriToFile(const Triangle &tri, std::ofstream &file) {
+    // save each vertex
+    file << "v ";
+    file << std::fixed << std::setprecision(6) << tri.a.x; // Write value
+    file << " "; // Space
+    file << std::fixed << std::setprecision(6) << tri.a.y; // Write value
+    file << " "; // Space
+    file << std::fixed << std::setprecision(6) << tri.a.z; // Write value
+    file << "\nv "; // Space
+
+    file << std::fixed << std::setprecision(6) << tri.b.x; // Write value
+    file << " "; // Space
+    file << std::fixed << std::setprecision(6) << tri.b.y; // Write value
+    file << " "; // Space
+    file << std::fixed << std::setprecision(6) << tri.b.z; // Write value
+    file << "\nv "; // Space
+
+    file << std::fixed << std::setprecision(6) << tri.c.x; // Write value
+    file << " "; // Space
+    file << std::fixed << std::setprecision(6) << tri.c.y; // Write value
+    file << " "; // Space
+    file << std::fixed << std::setprecision(6) << tri.c.z; // Write value
+    file << "\n"; // End of row
+}
+
+void saveObjFile(const std::vector<OBS> &obsVec, const std::string& filename) {
+    // Open the file in output mode
+    std::ofstream file(filename);
+            
+    // Check if the file was opened successfully
+    if (!file.is_open()) {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return;
+    }
+
+    file << "# OBJ file\n";
+    file << "# Number of meshes: " << obsVec.size() << "\n";
+    file << "mtllib sponza.mtl\n";
+
+    // for each mesh, save a new mesh obj
+    for (size_t i = 0; i < obsVec.size(); i++) {
+        // save obstacles to obj file
+        std::vector<std::vector<size_t>> vert_buffer;
+
+        // vertex normal buffer
+        std::vector<std::vector<float>> vert_norm_buffer;
+
+        // get current mesh
+        OBS cur_obs = obsVec[i];
+
+        // comments
+        file << "# Mesh " << i << " vertices\n";
+
+        // save each vertex
+        for (size_t j = 0; j < cur_obs.faces.size(); j++) {
+            // current face
+            Triangle cur_tri = cur_obs.faces[j];
+
+            // write triangle to file
+            writeTriToFile(cur_tri, file);
+
+            // save vertex idxs to buffer
+            vert_buffer.push_back({j*3 + 1, j*3 + 2, j*3 + 3});
+
+            // save vertex normal to buffer
+            vert_norm_buffer.push_back({cur_tri.n.x, cur_tri.n.y, cur_tri.n.z});
+        }
+
+        // write all vertex normals to file
+        file << "\n# Vertex normals for mesh " << i << ":\n";
+        size_t num_normals = 0;
+        for (size_t j = 0; j < vert_norm_buffer.size(); j++) {
+            file << "vn " << std::setprecision(6) << vert_norm_buffer[j][0] << " " << std::setprecision(6) << vert_norm_buffer[j][1] << " " << std::setprecision(6) << vert_norm_buffer[j][2] << "\n";
+            num_normals++;
+        }
+
+        // comments
+        file << "\n";
+        file << "# Vertex idxs for each mesh face " << i << "\n";
+
+        // get material
+        file << "usemtl floor" << i << "\n";
+
+        // write vertex idxs to file
+        for (size_t j = 0; j < vert_buffer.size(); j++) {
+            file << "f " << vert_buffer[j][0] << "//" << j+1 << " " << vert_buffer[j][1] << "//" << j+1 << " " << vert_buffer[j][2] << "//" << j+1 << "\n";
+        }
+
+        file << "\n";
+    }
+
+    // Close the file
+    file.close();
 }
