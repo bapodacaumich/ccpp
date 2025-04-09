@@ -751,38 +751,38 @@ void cw_acceleration(vec3& acceleration, vec3 point, vec3 velocity) {
     acceleration.z = -1 * n * n * point.z;
 }
 
-float cw_dv(vec3 start, vec3 end, float speed, size_t N) {
-    // integrate cw drift opposition delta-v from start to end at speed 
-    // N = number of discretization steps to take -- inclusive
+// float cw_dv(vec3 start, vec3 end, float speed, size_t N) {
+//     // integrate cw drift opposition delta-v from start to end at speed 
+//     // N = number of discretization steps to take -- inclusive
 
-    float mu = 3.986e14; // gravitational parameter
-    float a = 6.778137e6; // semi-major axis
-    float n = std::sqrt(mu / (a * a * a)); // orbital rate 
-    // float g0 = 9.80665; // standard gravity
-    // float m = 5; // mass of the spacecraft - 5 kg
-    // float Isp = 80; // specific impulse
+//     float mu = 3.986e14; // gravitational parameter
+//     float a = 6.778137e6; // semi-major axis
+//     float n = std::sqrt(mu / (a * a * a)); // orbital rate 
+//     // float g0 = 9.80665; // standard gravity
+//     // float m = 5; // mass of the spacecraft - 5 kg
+//     // float Isp = 80; // specific impulse
 
-    std::vector<vec3> displacement;
-    vec3 velocity = (end - start) / (end - start).norm() * speed;
-    std::vector<vec3> acceleration;
+//     std::vector<vec3> displacement;
+//     vec3 velocity = (end - start) / (end - start).norm() * speed;
+//     std::vector<vec3> acceleration;
 
-    // calculate the displacement vector
-    for (size_t i = 0; i < N; i++) {
-        float t = static_cast<float>(i) / static_cast<float>(N);
-        vec3 point = start * (1 - t) + end * t;
-        displacement.push_back(point);
-    }
+//     // calculate the displacement vector
+//     for (size_t i = 0; i < N; i++) {
+//         float t = static_cast<float>(i) / static_cast<float>(N);
+//         vec3 point = start * (1 - t) + end * t;
+//         displacement.push_back(point);
+//     }
 
-    // compute drift acceleration
-    for (size_t i = 0; i < N; i++) {
-        vec3 acc;
-        acc.x = 3 * n * n * displacement[i].x + 2 * n * velocity.y;
-        acc.y = -2 * n * velocity.x;
-        acc.z = -1 * n * n * displacement[i].z;
-        acceleration.push_back(acc);
-    }
-    return 0;
-}
+//     // compute drift acceleration
+//     for (size_t i = 0; i < N; i++) {
+//         vec3 acc;
+//         acc.x = 3 * n * n * displacement[i].x + 2 * n * velocity.y;
+//         acc.y = -2 * n * velocity.x;
+//         acc.z = -1 * n * n * displacement[i].z;
+//         acceleration.push_back(acc);
+//     }
+//     return 0;
+// }
 
 float cw_cost(vec3 start, vec3 end, float speed, size_t N) {
     // compute cost to oppose CW disturbance from start to end at speed.

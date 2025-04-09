@@ -3,6 +3,10 @@
 #include <string>
 #include <vector>
 
+/**
+ * Evaluate the ordered viewpoint fuel cost (with drift rejection) at a given velocity
+ */
+
 int main() {
     // get all ordered viewpoint files:
     std::vector<std::string> files = {
@@ -16,9 +20,11 @@ int main() {
         "16m_global.csv"
     };
 
+    float v_nom = 0.1f;
+
     std::string dir = "../data/ordered_viewpoints/";
 
     for (auto file : files) {
-        // compute the cost of the ordered viewpoint file
+        // compute the cost of the ordered viewpoints
     }
 }

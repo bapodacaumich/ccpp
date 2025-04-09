@@ -35,6 +35,12 @@ struct Triangle {
         return (this->a + this->b + this->c) / 3.0f;
     }
 
+    float getArea() {
+        vec3 ab = this->b - this->a;
+        vec3 ac = this->c - this->a;
+        return 0.5f * (ab.cross(ac)).norm();
+    }
+
     std::string toString() {
         return "Triangle (v0, v1, v2, n): " + 
                 this->a.toString() + ", " + 
