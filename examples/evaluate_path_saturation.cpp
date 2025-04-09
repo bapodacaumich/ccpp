@@ -27,42 +27,42 @@ int main(int argc, char** argv) {
     float dt = 1.0f / fps;
 
     std::vector<std::string> folders = {
-        // "cw_opt_packaged_10",
-        // "cw_opt_packaged_50",
-        // "cw_opt_packaged_var",
-        // "packaged_paths_ko/pf_final",
-        // "packaged_paths_ko_slerp/pf_final",
-        // "packaged_paths_ma/pf_final",
-        // "packaged_paths_ma_slerp/pf_final",
-        // "packaged_paths_so/pf_final",
-        // "packaged_paths_fo/pf_final"
-        // "packaged_paths_ko_slerp/study_paths",
-        "packaged_paths_fo/study_paths"
+        "cw_opt_packaged_10",
+        "cw_opt_packaged_50",
+        "cw_opt_packaged_var",
+        "packaged_paths_ko/pf_final",
+        "packaged_paths_ko_slerp/pf_final",
+        "packaged_paths_ma/pf_final",
+        "packaged_paths_ma_slerp/pf_final",
+        "packaged_paths_so/pf_final",
+        "packaged_paths_fo/pf_final"
+        // "packaged_paths_ko_slerp/study_paths"
+        // "packaged_paths_fo/study_paths"
     };
 
     std::vector<std::string> savefolders = {
-        // "ivt_10",
-        // "ivt_50",
-        // "ivt_var",
-        // "ocp_ko",
-        // "ocp_ko_slerp",
-        // "ocp_ma",
-        // "ocp_ma_slerp"
-        // "ocp_so"
-        // "ocp_fo"
+        "ivt_10",
+        "ivt_50",
+        "ivt_var",
+        "ocp_ko",
+        "ocp_ko_slerp",
+        "ocp_ma",
+        "ocp_ma_slerp",
+        "ocp_so",
+        "ocp_fo"
         // "study_paths_ko_slerp"
-        "study_paths_fo"
+        // "study_paths_fo"
     };
 
     std::vector<std::string> conditions = {
-        // "2m_global",
-        // "2m_local",
+        "2m_global",
+        "2m_local",
         "4m_global",
         "4m_local",
         "8m_global",
-        "8m_local"
-        // "16m_global",
-        // "16m_local"
+        "8m_local",
+        "16m_global",
+        "16m_local"
     };
 
     std::string dir = "../knot_ocp/";
