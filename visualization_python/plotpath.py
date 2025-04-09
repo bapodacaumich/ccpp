@@ -1,9 +1,11 @@
-from station import visualize_station, station_monotone, station_saturation
+from station import visualize_station, station_monotone, station_saturation, station_val
 from utils import plot_path_direct, save_animation, plot_cw_opt_path, set_aspect_equal_3d, plot_packaged_path, plot_viewpoints, camera_fov_points, get_hex_color_tableau
 from matplotlib import pyplot as plt
 import os
 import numpy as np
 import plotly.graph_objects as go
+from tqdm import tqdm
+from saturation_coverage_analysis import compute_coverage_quality, evaluate_good_coverage
 
 def plotly_add_camera_fov(figure, data, step=5, fov_size=1, row=None, col=None):
     # check if plot is a subplot. if so, add camera fov to subplot specified by row and col
@@ -188,6 +190,7 @@ def plot_path_and_dir(data, figure, savefile=os.path.join('figures','path'), sav
 
     if save:
         savefile = os.path.join(os.getcwd(), savefile)
+        print('saving plot to: ', savefile + '.html')
         os.makedirs(os.path.dirname(savefile), exist_ok=True)
         figure.write_html(savefile + '.html')
 
@@ -197,15 +200,20 @@ def plot_path_and_dir(data, figure, savefile=os.path.join('figures','path'), sav
     return figure
 
 def plot_final_path(vgd, local, condition='ocp'):
-    """plot final path in plotly
+    """plot final path in plotly, save to figure, save to png
 
     Args:
         vgd (str): viewpoint generation distance (i.e. '2m', '4m', '8m', '16m')
         local (bool): local or global viewpoint generation
         condition (str, optional): path generation method (folder within ./final_paths/ directory). Defaults to 'ocp'.
     """
+    figure = station_monotone(
+        True,  # convex station model
+        title=condition + ': ' + vgd + (' local' if local else ' global') + ' path', 
+        save=False, 
+        show=False
+    )
 
-    figure = station_monotone(True, title=condition + ': ' + vgd + (' local' if local else ' global') + ' path', save=False, show=False)
     # figure = station_monotone(False, title=condition + ': ' + vgd + (' local' if local else ' global') + ' path', save=False, show=False, fig=figure)
     data = np.loadtxt(os.path.join('final_paths', condition, vgd + '_local.csv' if local else vgd + '_global.csv'), delimiter=',')
 
@@ -217,7 +225,52 @@ def plot_final_path(vgd, local, condition='ocp'):
 
     save_file = os.path.join(os.getcwd(), 'figures', 'traj', condition, vgd + ('_local' if local else '_global'))
     os.makedirs(os.path.dirname(save_file), exist_ok=True)
-    figure = plot_path_and_dir(data, figure, savefile=save_file, save=True, show=False, fov_size=0.5)
+    figure = plot_path_and_dir(data, figure, savefile=save_file, save=True, show=False, fov_size=1)
+
+    # save figure to high quality image
+    # figure.update_layout(
+    #     height=1080,
+    #     width=1920
+    # )
+    figure.write_image(
+        save_file + '.png', format='png',
+        width=1920,
+        height=1080,
+        scale=2
+    )
+
+def plot_final_path_covg_quality(vgd, local, condition='ocp'):
+    """plot station with coverage quality values on mesh in plotly, then save to figures folder
+
+    Args:
+        vgd (_type_): _description_
+        local (_type_): _description_
+        condition (str, optional): _description_. Defaults to 'ocp'.
+    """
+    # get coverage quality
+    quality = compute_coverage_quality(vgd, local, condition)
+
+    # evaluate ratio of good coverage
+    good_coverage = evaluate_good_coverage(quality)
+    print(vgd, ('local' if local else 'global'), condition, 'good coverage:', good_coverage)
+
+    # plot corresponding saturation values on mesh
+    figure = station_val(condition, vgd + ('_local' if local else '_global'), quality, save=False, show=False, annotate_face_index=True)
+
+    # plot knot points
+    knotfile = os.path.join('final_paths', 'knots', vgd + '_local.csv' if local else vgd + '_global.csv')
+    figure = plot_knots_stripped(knotfile, figure, show=False)
+
+    # remove gridline background
+    figure.update_layout(template='simple_white')
+
+    # prepare save directory and file
+    save_file = os.path.join(os.getcwd(), 'figures', 'coverage_quality', condition, vgd + ('_local' if local else '_global') + '_covg_quality')
+    os.makedirs(os.path.dirname(save_file), exist_ok=True)
+
+    # load final path data and plot
+    data = np.loadtxt(os.path.join('final_paths', condition, vgd + '_local.csv' if local else vgd + '_global.csv'), delimiter=',')
+    figure = plot_path_and_dir(data, figure, savefile=save_file, save=True, show=False)
 
 def plot_final_path_saturation_time(vgd, local, condition='ocp'):
     """plot final path with saturation time per mesh displayed on station in plotly, then save to figures folder
@@ -271,6 +324,18 @@ def plot_final_path_min_aoi(vgd, local, condition='ocp'):
     # load final path data and plot
     data = np.loadtxt(os.path.join('final_paths', condition, vgd + '_local.csv' if local else vgd + '_global.csv'), delimiter=',')
     figure = plot_path_and_dir(data, figure, savefile=save_file, save=True, show=False)
+
+def plot_covg_quality_study_paths(method='ko_slerp'):
+    """generate plots with saturation time station visualization, final study paths, and knot points
+
+    Args:
+        method (str, optional): _description_. Defaults to 'ko_slerp'.
+    """
+    vgds = ['4m', '8m']
+    locals = [False, True]
+    for vgd in vgds:
+        for local in locals:
+            plot_final_path_covg_quality(vgd, local, condition='study_paths_' + method)
 
 def plot_saturation_time_study_paths(method='ko_slerp'):
     """generate plots with saturation time station visualization, final study paths, and knot points
@@ -376,6 +441,13 @@ def plot_all_aoi_traj():
         plot_aoi_condition(c)
 
 def plot_file(pathfile, knotfile):
+    """plot a path from a knot file and data file
+
+    Args:
+        pathfile (_type_): final trajectory file (plot with view direction)
+        knotfile (_type_): file of path knots (plot dashed)
+    """
+    # plot specific path file -- debugging
     figure = station_monotone(True, title=pathfile, save=False, show=False)
     figure = plot_knots(knotfile, figure, show=False)
     data = np.loadtxt(pathfile, delimiter=',')
@@ -471,77 +543,52 @@ def plot_knots(knotfile, figure, show=False, row=None, col=None):
 
     return figure
 
-def plot_aoi_hist_interactive(vgd, local, condition='study_paths_fo'):
+def plot_min_aoi_station_idx(vgd, local, condition='study_paths_fo'):
     # plot corresponding saturation values on mesh
-    figure = station_saturation(condition, vgd + ('_local' if local else '_global'), 'min', save=False, show=False, side_by_side=True)
+    figure = station_saturation(condition, vgd + ('_local' if local else '_global'), 'min', save=False, show=False, annotate_face_index=True)
 
     # plot knot points
     knotfile = os.path.join('final_paths', 'knots', vgd + '_local.csv' if local else vgd + '_global.csv')
-    figure = plot_knots(knotfile, figure, show=False, row=1, col=1)
+    figure = plot_knots(knotfile, figure, show=False)
 
     # remove gridline background
     figure.update_layout(template='simple_white')
 
     # prepare save directory and file
-    save_file = os.path.join(os.getcwd(), 'figures', 'traj_min_aoi', condition, vgd + ('_local' if local else '_global') + '_min_aoi')
+    save_file = os.path.join(os.getcwd(), 'figures', 'histograms', condition, vgd + ('_local' if local else '_global') + '_min_aoi_face_idx')
     os.makedirs(os.path.dirname(save_file), exist_ok=True)
 
     # load final path data and plot
     data = np.loadtxt(os.path.join('final_paths', condition, vgd + '_local.csv' if local else vgd + '_global.csv'), delimiter=',')
-    figure = plot_path_and_dir(data, figure, savefile=save_file, save=False, show=False, row=1, col=1)
+    figure = plot_path_and_dir(data, figure, savefile=save_file, save=True, show=False)
 
-    # plot histogram
-    figure = aoi_hist_interactive(vgd, local, condition, figure, row=1, col=2)
+def save_station_face_idx_study_paths():
+    conditions = [
+        'study_paths_ko_slerp',
+        'study_paths_fo'
+    ]
 
-    #launch figure
-    figure.show()
-
-def aoi_hist_interactive(vgd, local, condition, figure, row=1, col=2):
-    # load in corresponding saturation file
-    saturation_file = os.path.join(os.getcwd(), 'saturation', condition, vgd + ('_local' if local else '_global') + "_sat.csv")
-    saturation = np.loadtxt(saturation_file, delimiter=',')
-
-    # load min aoi data
-    # aoi_avg = [sat if sat > 0 and sat < np.pi else np.pi for sat in saturation[:,1]]
-    aoi_min = [sat if sat > 0 and sat < np.pi else np.pi for sat in saturation[:,2]]
-
-    # plot histogram
-    figure.add_trace(
-        go.Histogram(
-            x=[10],
-            marker=dict(color='blue'),
-            showlegend=False
-            # xaxistitle='Min AOI (rad)',
-            # yaxistitle='Count'
-        ), 
-        row=row, col=col
-    )
-
-    fig_widget = go.FigureWidget(figure)
+    vgds = ['4m', '8m']
+    locals = [True, False]
+    
+    for c in conditions:
+        for vgd in vgds:
+            for local in locals:
+                plot_min_aoi_station_idx(vgd, local, condition=c)
 
 
-
-    def update_histogram(trace, points, selector):
-        """_summary_
-        points = [point_inds=[], xs=[], ys=[], trace_name=None, trace_index=None]
-
-        Args:
-            trace (_type_): trace being clicked on (scatter)
-            points (_type_): selected points - [point_inds=[], xs=[], ys=[], trace_name=None, trace_index=None]
-            selector (_type_): _description_
-        """
-        fig_widget.update_traces(x=points, selector=dict(type='histogram'), overwrite=True)
-
-    fig_widget.data[0].on_click(update_histogram)
-
-    return figure
 
 if __name__ == "__main__":
     # plot_saturation_time_study_paths('fo')
     # plot_all_aoi_traj()
     # plot_aoi_condition('ocp_fo')
-    plot_aoi_hist_interactive('4m', False, condition='study_paths_fo')
-    # plot_condition('study_paths_fo')
+    # plot_aoi_hist_interactive('4m', False, condition='study_paths_fo')
+    # save_study_path_histogram_condition('study_paths_fo')
+    # save_study_path_aoi_histograms()
+    # save_station_face_idx_study_paths()
+    # save_all_aoi_overall_hist()
+    # save_all_aoi_overall_hist_study()
+    plot_condition('study_paths_fo')
     # condition = 'ocp'
     # # vgds = ['2m', '4m', '8m', '16m']
     # vgds = ['4m']
@@ -550,3 +597,8 @@ if __name__ == "__main__":
     #     for local in locals:
     #         plotpath(vgd, local, condition=condition)
     # # plotpath()
+    # save_all_time_overall_hist_study()
+    # save_all_time_overall_hist()
+    # save_all_aoi_overall_hist_study()
+    # save_all_aoi_overall_hist()
+    # plot_covg_quality_study_paths(method='fo')

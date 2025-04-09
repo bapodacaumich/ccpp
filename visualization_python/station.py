@@ -182,7 +182,119 @@ def station_monotone(convex, title='Station', savefile='station', save=False, sh
 
     return fig
 
-def station_saturation(folder, condition, stat, save=False, show=True, title=None, side_by_side=False):
+def station_val(folder, condition, vals, save=False, show=True, title=None, annotate_face_index=False):
+    """plotly station saturation visualization
+
+    Args:
+        folder (_type_): trajectory generation method
+        condition (_type_): vgd and locality conditions for path
+        stat (_type_): 'avg', 'min', or 'count'
+    """
+    ## process values for coloring faces
+    # log values for visualization. red is coverage quality below 20 second threshold, blue is above 20 seconds, white is 20 seconds
+    saturation_time_threshold = 20
+    offset = 1.1 # offset balues to be positive
+
+    # compute log values by offsetting, taking log, then subtracting log threshold + offset
+    procvals = vals + offset
+    threshold = np.log(saturation_time_threshold + offset)
+    procvals = np.log(procvals) - threshold
+    zero_ratio = (-np.min(procvals))/(np.max(procvals) - np.min(procvals))
+    lowest_val = np.min(procvals[procvals > np.min(procvals)])
+    lowest_val_ratio = (lowest_val - np.min(procvals))/(np.max(procvals) - np.min(procvals))
+
+    # load in coverage station
+    meshes = load_meshes(convex=False)
+    cmeshes = list(itertools.chain(*meshes))
+
+    # triangulate valid faces (get vertices and index order for drawing faces)
+    x = []
+    y = []
+    z = []
+    i = []
+    j = []
+    k = []
+
+    face_idxs = []
+
+    for idx in range(len(cmeshes)):
+        x.extend([cmeshes[idx][0][0], cmeshes[idx][1][0], cmeshes[idx][2][0]])
+        y.extend([cmeshes[idx][0][1], cmeshes[idx][1][1], cmeshes[idx][2][1]])
+        z.extend([cmeshes[idx][0][2], cmeshes[idx][1][2], cmeshes[idx][2][2]])
+        i.append(3*idx)
+        j.append(3*idx+1)
+        k.append(3*idx+2)
+
+        face_idxs.append(str(idx))
+
+    fig = go.Figure()
+
+    if annotate_face_index:
+        # draw valid faces
+        fig.add_trace(
+            go.Mesh3d(
+                x=x, y=y, z=z, i=i, j=j, k=k, 
+                intensity=procvals,
+                intensitymode='cell', 
+                colorscale=[
+                    [0,'rgb(255, 176, 0)'],
+                    [lowest_val_ratio, 'rgb(220, 38, 127)'],
+                    [zero_ratio, 'rgb(255, 255, 255)'], 
+                    [1, 'rgb(100, 143, 255)']
+                ],
+                showscale=True, 
+                customdata=vals,
+                hovertemplate='<b>Face Index</b>: %{text} \n <b>Value</b>: %{customdata}',
+                text=face_idxs
+            )
+        )
+
+    else:
+        fig.add_trace(
+            go.Mesh3d(
+                x=x, y=y, z=z, i=i, j=j, k=k, 
+                intensity=vals,
+                intensitymode='cell', 
+                colorscale='Viridis', 
+                showscale=True,
+                hoverinfo='skip'
+            )
+        )
+
+    fig.update_layout(
+        scene = dict(
+            xaxis=dict(
+                title=dict(
+                    text='X AXIS'
+                )
+            ),
+            yaxis=dict(
+                title=dict(
+                    text='Y AXIS'
+                )
+            ),
+            zaxis=dict(
+                title=dict(
+                    text='Z AXIS'
+                )
+            ),
+        )
+    )
+
+    fig.update_layout(
+        title=dict(text=title)
+    )
+
+    if save:
+        savefile = os.path.join(os.getcwd(), 'figures', folder, condition + '_val_station.html')
+        os.makedirs(os.path.dirname(savefile), exist_ok=True)
+        fig.write_html(savefile)
+
+    if show: fig.show()
+
+    return fig
+
+def station_saturation(folder, condition, stat, save=False, show=True, title=None, side_by_side=False, annotate_face_index=False):
     """plotly station saturation visualization
 
     Args:
@@ -201,6 +313,13 @@ def station_saturation(folder, condition, stat, save=False, show=True, title=Non
     aoi_avg = [sat if sat > 0 and sat < np.pi else np.pi for sat in saturation[:,1]]
     aoi_min = [sat if sat > 0 and sat < np.pi else np.pi for sat in saturation[:,2]]
 
+    if stat == 'time':
+        color_stat = saturation[:,0]
+    elif stat == 'avg':
+        color_stat = aoi_avg
+    elif stat == 'min':
+        color_stat = aoi_min
+
     x = []
     y = []
     z = []
@@ -208,6 +327,8 @@ def station_saturation(folder, condition, stat, save=False, show=True, title=Non
     j = []
     k = []
 
+    centroids = []
+    face_idxs = []
     for idx in range(len(cmeshes)):
         x.extend([cmeshes[idx][0][0], cmeshes[idx][1][0], cmeshes[idx][2][0]])
         y.extend([cmeshes[idx][0][1], cmeshes[idx][1][1], cmeshes[idx][2][1]])
@@ -216,17 +337,55 @@ def station_saturation(folder, condition, stat, save=False, show=True, title=Non
         j.append(3*idx+1)
         k.append(3*idx+2)
 
+        centroids.append(np.mean(cmeshes[idx], axis=0).flatten())
+        face_idxs.append(str(idx))
+
+    centroids = np.array(centroids)
+
     if side_by_side:
         fig = make_subplots(rows=1, cols=2, subplot_titles=("Minimum Station AOI", "Face AOI Histogram"),
                             specs=[[{'type': 'scene'}, {'type': 'histogram'}]])
     else:
-        fig = go.Figure(title=title)
-    if stat == 'time':
-        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=saturation[:,0], intensitymode='cell', colorscale='Viridis', showscale=True))
-    elif stat == 'avg':
-        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=aoi_avg, intensitymode='cell', colorscale='Viridis', showscale=True))
-    elif stat == 'min':
-        fig.add_trace(go.Mesh3d(x=x, y=y, z=z, i=i, j=j, k=k, intensity=aoi_min, intensitymode='cell', colorscale='Viridis', showscale=True))
+        fig = go.Figure()
+
+    if annotate_face_index:
+        fig.add_trace(
+            go.Mesh3d(
+                x=x, y=y, z=z, i=i, j=j, k=k, 
+                intensity=color_stat, 
+                intensitymode='cell', 
+                colorscale='Viridis', 
+                showscale=True, 
+                hovertemplate='<b>Face Index</b>: %{text}',
+                text=face_idxs
+            )
+        )
+    else:
+        fig.add_trace(
+            go.Mesh3d(
+                x=x, y=y, z=z, i=i, j=j, k=k, 
+                intensity=color_stat, 
+                intensitymode='cell', 
+                colorscale='Viridis', 
+                showscale=True,
+                hoverinfo='skip'
+            )
+        )
+
+    # if annotate_face_index:
+    #     fig.add_trace(
+    #         go.Scatter3d(
+    #             x=centroids[:,0], 
+    #             y=centroids[:,1], 
+    #             z=centroids[:,2],
+    #             mode='markers',
+    #             hovertemplate='<b>%{text}</b>',
+    #             text=face_idxs,
+    #             # textposition='top center',
+    #             marker=dict(opacity=0, size=50),
+    #             showlegend=False
+    #         )
+    #     )
 
     # fig.update_layout(
     #     scene = dict(

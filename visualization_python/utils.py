@@ -301,6 +301,15 @@ def save_animation(ax, folder):
         plt.savefig(f'./{folder}/{i:03d}.png', dpi=300)
         time_left = (time.perf_counter() - start_time) * (360 - i) / (i + 1)
 
+def get_raw_aoi(sat_bin_count, n_bins):
+    x_raw = []
+    bin_width = np.pi / 2 / n_bins
+    for i in range(n_bins):
+        x_raw += [i*bin_width + bin_width/2] * int(sat_bin_count[i])
+        
+    x_raw += [np.pi] * int(sat_bin_count[-1])
+    return x_raw
+
 def set_aspect_equal_3d(axes):
     # get aspect ratios
     xlim = axes.get_xlim()
